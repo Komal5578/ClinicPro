@@ -4,7 +4,7 @@ const getInventory = async (req, res) => {
   const { clinic_id } = req.query;
   try {
     const [rows] = await db.query(
-      `SELECT * FROM Inventory WHERE clinic_id = ? ORDER BY medicine_name ASC`,
+      `SELECT * FROM InventoryItem WHERE clinic_id = ? ORDER BY item_name ASC`,
       [clinic_id]
     );
     res.json(rows);
@@ -17,9 +17,9 @@ const getLowStock = async (req, res) => {
   const { clinic_id } = req.query;
   try {
     const [rows] = await db.query(
-      `SELECT * FROM Inventory 
-       WHERE clinic_id = ? AND quantity_strips <= reorder_level
-       ORDER BY quantity_strips ASC`,
+      `SELECT * FROM InventoryItem 
+       WHERE clinic_id = ? AND quantity <= threshold_quantity
+       ORDER BY quantity ASC`,
       [clinic_id]
     );
     res.json(rows);
@@ -29,30 +29,29 @@ const getLowStock = async (req, res) => {
 };
 
 const addInventoryItem = async (req, res) => {
-  const { clinic_id, medicine_name, batch_number, expiry_date,
-          quantity_strips, strips_per_box, reorder_level, purchase_price, sale_price } = req.body;
+  const { clinic_id, category_id, item_name, quantity,
+          threshold_quantity, expiry_date, unit } = req.body;
   try {
     const [result] = await db.query(
-      `INSERT INTO Inventory 
-       (clinic_id, medicine_name, batch_number, expiry_date,
-        quantity_strips, strips_per_box, reorder_level, purchase_price, sale_price)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [clinic_id, medicine_name, batch_number, expiry_date,
-       quantity_strips, strips_per_box, reorder_level || 10, purchase_price, sale_price]
+      `INSERT INTO InventoryItem 
+       (clinic_id, category_id, item_name, quantity, threshold_quantity, expiry_date, unit)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [clinic_id, category_id, item_name, quantity,
+       threshold_quantity || 10, expiry_date || null, unit]
     );
-    res.status(201).json({ message: 'Item added', inventory_id: result.insertId });
+    res.status(201).json({ message: 'Item added', item_id: result.insertId });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
 };
 
 const updateStock = async (req, res) => {
-  const { inventory_id } = req.params;
-  const { quantity_strips } = req.body;
+  const { item_id } = req.params;
+  const { quantity } = req.body;
   try {
     await db.query(
-      'UPDATE Inventory SET quantity_strips = ? WHERE inventory_id = ?',
-      [quantity_strips, inventory_id]
+      'UPDATE InventoryItem SET quantity = ? WHERE item_id = ?',
+      [quantity, item_id]
     );
     res.json({ message: 'Stock updated' });
   } catch (err) {

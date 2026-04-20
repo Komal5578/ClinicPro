@@ -1,23 +1,21 @@
 const db = require('../config/db');
-const path = require('path');
 
 const generatePrescription = async (req, res) => {
-  const { consultation_id, patient_id, doctor_id, clinic_id, items } = req.body;
-  // items = [{ medicine_name, dosage, frequency, duration, instructions }]
+  const { consultation_id, patient_id, doctor_id, items } = req.body;
   try {
     const [result] = await db.query(
-      `INSERT INTO Prescription (consultation_id, patient_id, doctor_id, clinic_id)
-       VALUES (?, ?, ?, ?)`,
-      [consultation_id, patient_id, doctor_id, clinic_id]
+      `INSERT INTO Prescription (consultation_id, patient_id, doctor_id)
+       VALUES (?, ?, ?)`,
+      [consultation_id, patient_id, doctor_id]
     );
     const prescription_id = result.insertId;
 
     for (const item of items) {
       await db.query(
         `INSERT INTO PrescriptionItem 
-         (prescription_id, medicine_name, dosage, frequency, duration, instructions)
+         (prescription_id, medicine_name, dosage, frequency, duration_days, notes)
          VALUES (?, ?, ?, ?, ?, ?)`,
-        [prescription_id, item.medicine_name, item.dosage, item.frequency, item.duration, item.instructions || null]
+        [prescription_id, item.medicine_name, item.dosage, item.frequency, item.duration_days, item.notes || null]
       );
     }
 
