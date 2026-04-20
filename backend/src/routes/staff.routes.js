@@ -4,8 +4,8 @@ const { getAllStaff, addStaff } = require('../controllers/staff.controller');
 const { authenticate } = require('../middleware/auth.middleware');
 const { authorizeRoles } = require('../middleware/role.middleware');
 
-router.get('/', authenticate, authorizeRoles('receptionist'), getAllStaff);
-router.post('/add', authenticate, authorizeRoles('receptionist'), addStaff);
+router.get('/', authenticate, authorizeRoles('receptionist','doctor'), getAllStaff);
+router.post('/add', authenticate, authorizeRoles('receptionist','doctor'), addStaff);
 
 
 module.exports = router;
