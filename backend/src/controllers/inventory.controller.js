@@ -1,7 +1,7 @@
 const db = require('../config/db');
 
 const getInventory = async (req, res) => {
-  const { clinic_id } = req.query;
+  const clinic_id = req.user.clinic_id;  // from token
   try {
     const [rows] = await db.query(
       `SELECT * FROM InventoryItem WHERE clinic_id = ? ORDER BY item_name ASC`,
@@ -14,7 +14,7 @@ const getInventory = async (req, res) => {
 };
 
 const getLowStock = async (req, res) => {
-  const { clinic_id } = req.query;
+  const clinic_id = req.user.clinic_id;  // from token
   try {
     const [rows] = await db.query(
       `SELECT * FROM InventoryItem 
@@ -29,7 +29,8 @@ const getLowStock = async (req, res) => {
 };
 
 const addInventoryItem = async (req, res) => {
-  const { clinic_id, category_id, item_name, quantity,
+  const clinic_id = req.user.clinic_id;  // from token
+  const { category_id, item_name, quantity,
           threshold_quantity, expiry_date, unit } = req.body;
   try {
     const [result] = await db.query(

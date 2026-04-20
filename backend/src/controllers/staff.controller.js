@@ -1,10 +1,11 @@
 const db = require('../config/db');
 
 const getAllStaff = async (req, res) => {
-  const { clinic_id } = req.query;
+  const clinic_id = req.user.clinic_id;  // from token
   try {
     const [rows] = await db.query(
-      `SELECT * FROM Staff WHERE clinic_id = ? ORDER BY role, name`,
+      `SELECT staff_id, clinic_id, name, phone, role, created_at 
+       FROM Staff WHERE clinic_id = ? ORDER BY role, name`,
       [clinic_id]
     );
     res.json(rows);
@@ -14,7 +15,8 @@ const getAllStaff = async (req, res) => {
 };
 
 const addStaff = async (req, res) => {
-  const { clinic_id, name, phone, role } = req.body;
+  const clinic_id = req.user.clinic_id;  // from token
+  const { name, phone, role } = req.body;  // clinic_id removed from body
   try {
     const [result] = await db.query(
       `INSERT INTO Staff (clinic_id, name, phone, role)
