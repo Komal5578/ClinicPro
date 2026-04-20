@@ -4,6 +4,7 @@ const helmet = require('helmet');
 const authRoutes = require('./src/routes/auth.routes');
 const patientRoutes = require('./src/routes/patient.routes');
 const doctorRoutes = require('./src/routes/doctor.routes');
+const appointmentRoutes = require('./src/routes/appointment.routes');
 const app = express();
 
 app.use(helmet());
@@ -18,4 +19,5 @@ app.get('/', (req, res) => {
 
 app.use('/api/patients', patientRoutes);
 app.use('/api/doctors', doctorRoutes);
+app.use('/api/appointments', appointmentRoutes);
 module.exports = app;
