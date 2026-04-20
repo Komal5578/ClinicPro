@@ -1,7 +1,9 @@
 const { verifyToken } = require('../utils/generateToken');
 
 const authenticate = (req, res, next) => {
-  const authHeader = req.headers.authorization;
+  const authHeader = req.headers['authorization'];
+
+  console.log('Auth header received:', authHeader);
 
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ message: 'No token provided' });
@@ -14,6 +16,7 @@ const authenticate = (req, res, next) => {
     req.user = decoded;
     next();
   } catch (err) {
+    console.log('Token error:', err.message);
     return res.status(401).json({ message: 'Invalid token' });
   }
 };
