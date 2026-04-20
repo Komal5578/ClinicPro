@@ -4,9 +4,10 @@ const { getInventory, getLowStock, addInventoryItem, updateStock } = require('..
 const { authenticate } = require('../middleware/auth.middleware');
 const { authorizeRoles } = require('../middleware/role.middleware');
 
-router.get('/', authenticate, authorizeRoles('doctor', 'receptionist', 'admin'), getInventory);
-router.get('/low-stock', authenticate, authorizeRoles('doctor', 'receptionist', 'admin'), getLowStock);
-router.post('/add', authenticate, authorizeRoles('receptionist', 'admin'), addInventoryItem);
-router.patch('/:item_id/stock', authenticate, authorizeRoles('receptionist', 'admin'), updateStock);
+// inventory.routes.js
+router.get('/', authenticate, authorizeRoles('doctor', 'receptionist'), getInventory);
+router.get('/low-stock', authenticate, authorizeRoles('doctor', 'receptionist'), getLowStock);
+router.post('/add', authenticate, authorizeRoles('doctor', 'receptionist'), addInventoryItem);
+router.patch('/:item_id/stock', authenticate, authorizeRoles('doctor', 'receptionist'), updateStock);
 
 module.exports = router;
