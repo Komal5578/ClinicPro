@@ -4,14 +4,15 @@ const { generateToken } = require('../utils/generateToken');
 
 const login = async (req, res) => {
   const { email, password, role } = req.body;
+  const normalizedRole = typeof role === 'string' ? role.toLowerCase() : '';
 
   try {
     let user = null;
     let table = '';
 
-    if (role === 'doctor') {
+    if (normalizedRole === 'doctor') {
       table = 'Doctor';
-    } else if (role === 'receptionist') {
+    } else if (normalizedRole === 'receptionist') {
       table = 'Staff';
     } else {
       return res.status(400).json({ message: 'Invalid role' });
@@ -27,14 +28,18 @@ const login = async (req, res) => {
 
     user = rows[0];
 
-    const isMatch = await bcrypt.compare(password, user.password_hash);
+    // Support both bcrypt-hashed and plain-text passwords
+    const isBcryptHash = user.password_hash && user.password_hash.startsWith('$2');
+    const isMatch = isBcryptHash
+      ? await bcrypt.compare(password, user.password_hash)
+      : password === user.password_hash;
     if (!isMatch) {
       return res.status(401).json({ message: 'Wrong password' });
     }
 
     const token = generateToken({
       id: user.doctor_id || user.staff_id,
-      role: role,
+      role: normalizedRole,
       clinic_id: user.clinic_id || null
     });
 
@@ -43,7 +48,7 @@ const login = async (req, res) => {
       user: {
         id: user.doctor_id || user.staff_id,
         name: user.name,
-        role: role,
+        role: normalizedRole,
         clinic_id: user.clinic_id || null
       }
     });

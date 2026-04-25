@@ -12,9 +12,12 @@ VALUES (1, 'Sharma Clinic', 'Andheri West, Mumbai', '09:00:00', '13:00:00', '17:
 INSERT INTO DoctorClinic (doctor_id, clinic_id)
 VALUES (1, 1);
 
--- Staff (receptionist)
-INSERT INTO Staff (clinic_id, name, phone, role, password_hash)
-VALUES (1, 'Priya Receptionist', '9876500001', 'RECEPTIONIST', '$2b$10$hashedpassword');
+-- Staff (receptionists)
+INSERT INTO Staff (clinic_id, name, phone, email, role, password_hash)
+VALUES (1, 'Priya Sharma', '9876500001', 'priya@clinic.com', 'RECEPTIONIST', '123456');
+
+INSERT INTO Staff (clinic_id, name, phone, email, role, password_hash)
+VALUES (1, 'Anjali Verma', '9876512345', 'anjali@clinic.com', 'RECEPTIONIST', '123456');
 
 -- Patients
 INSERT INTO Patient (name, age, phone, email)
