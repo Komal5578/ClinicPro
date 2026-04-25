@@ -20,6 +20,10 @@ CREATE TABLE Doctor (
   email                 VARCHAR(100) UNIQUE NOT NULL,
   digital_signature_path VARCHAR(255),
   password_hash         VARCHAR(255) NOT NULL,
+  sector                ENUM('GENERAL','AYURVEDIC','DENTAL') DEFAULT 'GENERAL',
+  registration_type     ENUM('MCI','CCIM','DCI'),
+  certificate_url       VARCHAR(500),
+  nmc_verified          BOOLEAN DEFAULT FALSE,
   created_at            TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -28,6 +32,10 @@ CREATE TABLE Clinic (
   doctor_id         INT,
   clinic_name       VARCHAR(100) NOT NULL,
   address           TEXT,
+  gst_number        VARCHAR(15) UNIQUE,
+  sector            ENUM('GENERAL','AYURVEDIC','DENTAL') DEFAULT 'GENERAL',
+  latitude          DECIMAL(10,8),
+  longitude         DECIMAL(11,8),
   morning_start     TIME,
   morning_end       TIME,
   evening_start     TIME,

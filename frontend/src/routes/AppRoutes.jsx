@@ -1,7 +1,12 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
-// Auth
+// Public pages
+import LandingPage from '../pages/LandingPage';
+import ClinicAuth from '../pages/auth/ClinicAuth';
+import ClinicRegister from '../pages/auth/ClinicRegister';
+
+// Auth (legacy - redirect to clinic)
 import Login from '../pages/auth/Login';
 
 // Doctor pages
@@ -25,8 +30,8 @@ import PatientPortal from '../pages/patient/PatientPortal';
 const ProtectedRoute = ({ children, allowedRoles }) => {
   const { user, loading } = useAuth();
   if (loading) return <div className="loading">Loading...</div>;
-  if (!user) return <Navigate to="/login" replace />;
-  if (allowedRoles && !allowedRoles.includes(user.role)) return <Navigate to="/login" replace />;
+  if (!user) return <Navigate to="/clinic" replace />;
+  if (allowedRoles && !allowedRoles.includes(user.role)) return <Navigate to="/clinic" replace />;
   return children;
 };
 
@@ -36,8 +41,13 @@ const AppRoutes = () => {
   return (
     <Routes>
       {/* Public routes */}
-      <Route path="/login" element={<Login />} />
+      <Route path="/" element={<LandingPage />} />
+      <Route path="/clinic" element={<ClinicAuth />} />
+      <Route path="/clinic/register" element={<ClinicRegister />} />
       <Route path="/patient" element={<PatientPortal />} />
+
+      {/* Legacy login redirect */}
+      <Route path="/login" element={<Navigate to="/clinic" replace />} />
 
       {/* Doctor routes */}
       <Route path="/doctor/queue" element={
@@ -77,16 +87,13 @@ const AppRoutes = () => {
       } />
 
       {/* Default redirect based on role */}
-      <Route path="/" element={
+      <Route path="*" element={
         user?.role === 'doctor'
           ? <Navigate to="/doctor/queue" replace />
           : user?.role === 'receptionist'
           ? <Navigate to="/receptionist/dashboard" replace />
-          : <Navigate to="/login" replace />
+          : <Navigate to="/" replace />
       } />
-
-      {/* Catch-all */}
-      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 };

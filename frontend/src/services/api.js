@@ -17,6 +17,7 @@ export const login = (data) => api.post('/auth/login', data);
 
 // Patients
 export const searchPatient = (phone) => api.get(`/patients/search?phone=${phone}`);
+export const searchPatientPublic = (phone) => api.get(`/patients/search/public?phone=${phone}`);
 export const registerPatient = (data) => api.post('/patients/register', data);
 
 // Doctor
@@ -34,6 +35,7 @@ export const updateWalkInStatus = (walkin_id, status) => api.patch(`/walkins/${w
 
 // Consultation
 export const getPatientHistory = (patient_id) => api.get(`/consultations/history/${patient_id}`);
+export const getPatientHistoryPublic = (patient_id) => api.get(`/consultations/history/public/${patient_id}`);
 export const saveConsultation = (data) => api.post('/consultations/save', data);
 
 // Prescription
@@ -49,5 +51,18 @@ export const updateStock = (item_id, quantity) => api.patch(`/inventory/${item_i
 // Staff
 export const getAllStaff = () => api.get('/staff');
 export const addStaff = (data) => api.post('/staff/add', data);
+
+// Clinics (public)
+export const getPublicClinics = () => api.get('/clinics/public');
+export const getNearbyClinics = (lat, lng, radius = 10) => api.get(`/clinics/public/nearby?lat=${lat}&lng=${lng}&radius=${radius}`);
+
+// GST Verification
+export const verifyGst = (gst_number) => api.post('/gst/verify', { gst_number });
+
+// Medicine
+export const lookupMedicine = (name) => api.post('/medicine/lookup', { name });
+
+// Chatbot
+export const getSymptomRecommendation = (answers) => api.post('/chatbot/symptom', answers);
 
 export default api;

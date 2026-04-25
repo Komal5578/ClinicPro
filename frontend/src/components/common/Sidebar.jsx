@@ -21,7 +21,7 @@ const Sidebar = () => {
 
   const handleLogout = () => {
     logout();
-    navigate('/login');
+    navigate('/clinic');
   };
 
   const links = user?.role === 'doctor' ? doctorLinks : receptionistLinks;

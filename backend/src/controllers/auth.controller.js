@@ -37,6 +37,14 @@ const login = async (req, res) => {
       return res.status(401).json({ message: 'Wrong password' });
     }
 
+    // Check approval status for staff/receptionist
+    if (normalizedRole === 'receptionist' && user.approval_status && user.approval_status === 'PENDING') {
+      return res.status(403).json({ message: 'Your account is pending doctor approval. Please wait for the clinic doctor to approve your account.' });
+    }
+    if (normalizedRole === 'receptionist' && user.approval_status && user.approval_status === 'REJECTED') {
+      return res.status(403).json({ message: 'Your account has been rejected. Please contact the clinic.' });
+    }
+
     const token = generateToken({
       id: user.doctor_id || user.staff_id,
       role: normalizedRole,

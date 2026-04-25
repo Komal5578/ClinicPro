@@ -1,205 +1,217 @@
-import { useState } from 'react';
-import { searchPatient, getPatientHistory } from '../../services/api';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import ClinicMap from '../../components/patient/ClinicMap';
+import SymptomChatbot from '../../components/patient/SymptomChatbot';
+import MedicineCheck from '../../components/patient/MedicineCheck';
+import PrescriptionDrawer from '../../components/patient/PrescriptionDrawer';
 
 const PatientPortal = () => {
-  const [phone, setPhone] = useState('');
-  const [otp] = useState('1234'); // simplified for prototype
-  const [enteredOtp, setEnteredOtp] = useState('');
-  const [step, setStep] = useState('phone'); // phone | otp | dashboard
-  const [patient, setPatient] = useState(null);
-  const [history, setHistory] = useState(null);
-  const [tab, setTab] = useState('prescriptions');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
+  const [clinics, setClinics] = useState([]);
+  const [sectorFilter, setSectorFilter] = useState('ALL');
+  const [showMedicineCheck, setShowMedicineCheck] = useState(false);
+  const [showPrescriptions, setShowPrescriptions] = useState(false);
 
-  const handlePhoneSubmit = async (e) => {
-    e.preventDefault();
-    setError(''); setLoading(true);
+  useEffect(() => {
+    fetchClinics();
+  }, []);
+
+  const fetchClinics = async () => {
     try {
-      const res = await searchPatient(phone);
-      setPatient(res.data);
-      setStep('otp');
-    } catch {
-      setError('Phone number not found. Please visit the clinic to register.');
-    } finally { setLoading(false); }
+      const res = await fetch('http://localhost:5000/api/clinics/public');
+      const data = await res.json();
+      setClinics(data);
+    } catch (err) {
+      console.error('Failed to fetch clinics:', err);
+    }
   };
 
-  const handleOtpSubmit = async (e) => {
-    e.preventDefault();
-    if (enteredOtp !== otp) { setError('Invalid OTP. For demo, use: 1234'); return; }
-    setLoading(true);
-    try {
-      const res = await getPatientHistory(patient.patient_id);
-      setHistory(res.data);
-      setStep('dashboard');
-    } catch { setError('Failed to load records'); }
-    finally { setLoading(false); }
+  const handleChatbotRecommend = (sector) => {
+    if (sector) {
+      setSectorFilter(sector);
+    }
   };
 
-  // Build medicine schedule from latest prescription
-  const getMedicineSchedule = () => {
-    if (!history?.prescriptions?.length) return { morning: [], afternoon: [], night: [] };
-    const latest = history.prescriptions.filter(p => {
-      const latestDate = history.prescriptions.reduce((max, px) =>
-        px.generated_at > max ? px.generated_at : max, '');
-      return p.generated_at === latestDate;
-    });
-    const schedule = { morning: [], afternoon: [], night: [] };
-    latest.forEach(p => {
-      const freq = (p.frequency || '').toLowerCase();
-      if (freq.includes('once') || freq.includes('morning') || freq.includes('daily')) schedule.morning.push(p);
-      if (freq.includes('twice') || freq.includes('afternoon')) { schedule.morning.push(p); schedule.night.push(p); }
-      if (freq.includes('thrice') || freq.includes('three')) { schedule.morning.push(p); schedule.afternoon.push(p); schedule.night.push(p); }
-      if (freq.includes('night') || freq.includes('bedtime')) schedule.night.push(p);
-    });
-    return schedule;
-  };
-
-  const schedule = getMedicineSchedule();
+  const filters = [
+    { id: 'ALL', label: 'All', icon: '🏥' },
+    { id: 'GENERAL', label: 'General', icon: '🩺' },
+    { id: 'AYURVEDIC', label: 'Ayurvedic', icon: '🌿' },
+    { id: 'DENTAL', label: 'Dental', icon: '🦷' },
+  ];
 
   return (
     <div style={{
       minHeight: '100vh',
-      background: 'linear-gradient(135deg, #f4f6fb 0%, #e8f0ff 100%)',
-      padding: '24px 16px',
-      fontFamily: 'DM Sans, sans-serif'
+      background: '#f8fafb',
+      fontFamily: "'Plus Jakarta Sans', sans-serif",
+      display: 'flex', flexDirection: 'column',
     }}>
-      <div style={{ maxWidth: 480, margin: '0 auto' }}>
-        {/* Header */}
-        <div style={{ textAlign: 'center', marginBottom: 32 }}>
-          <h1 style={{ fontSize: 28, fontWeight: 800, letterSpacing: -0.5 }}>
-            Clinic<span style={{ color: 'var(--primary, #0f6fff)' }}>Pro</span>
-          </h1>
-          <p style={{ color: '#718096', marginTop: 4, fontSize: 14 }}>Patient Portal</p>
+      {/* ─── TOP BAR ─── */}
+      <header style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '14px 28px',
+        background: 'white',
+        borderBottom: '1px solid #e2e8f0',
+        position: 'sticky', top: 0, zIndex: 100,
+      }}>
+        <div
+          onClick={() => navigate('/')}
+          style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
+        >
+          <div style={{
+            width: 32, height: 32, borderRadius: 9,
+            background: 'linear-gradient(135deg, #0d9488, #0f766e)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: 'white', fontSize: 16, fontWeight: 900,
+          }}>+</div>
+          <span style={{ fontSize: 17, fontWeight: 800, color: '#0f172a' }}>
+            Clinic<span style={{ color: '#0d9488' }}>Pro</span>
+          </span>
         </div>
 
-        {step === 'phone' && (
-          <div style={{ background: 'white', borderRadius: 16, padding: 28, boxShadow: '0 4px 20px rgba(0,0,0,0.08)' }}>
-            <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 6 }}>View Your Records</h2>
-            <p style={{ color: '#718096', fontSize: 13, marginBottom: 24 }}>Enter your registered phone number</p>
-            {error && <div style={{ background: '#fff0f0', color: '#ff3b3b', padding: '10px 14px', borderRadius: 8, marginBottom: 16, fontSize: 13 }}>{error}</div>}
-            <form onSubmit={handlePhoneSubmit}>
-              <div style={{ marginBottom: 16 }}>
-                <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 6 }}>Phone Number</label>
-                <input
-                  style={{ width: '100%', padding: '12px 14px', border: '1.5px solid #e2e8f0', borderRadius: 8, fontSize: 15, outline: 'none', boxSizing: 'border-box' }}
-                  placeholder="10-digit phone number"
-                  value={phone} onChange={e => setPhone(e.target.value)}
-                  maxLength={10} required
-                />
-              </div>
-              <button type="submit" disabled={loading}
-                style={{ width: '100%', padding: 13, background: '#0f6fff', color: 'white', border: 'none', borderRadius: 8, fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>
-                {loading ? 'Checking...' : 'Get OTP →'}
-              </button>
-            </form>
-          </div>
-        )}
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button
+            onClick={() => setShowPrescriptions(true)}
+            style={{
+              padding: '8px 16px', borderRadius: 9,
+              background: 'linear-gradient(135deg, #0d9488, #0f766e)',
+              color: 'white', border: 'none',
+              fontSize: 13, fontWeight: 600, cursor: 'pointer',
+              display: 'flex', alignItems: 'center', gap: 6,
+            }}
+          >
+            📋 My Prescriptions
+          </button>
+          <button
+            onClick={() => navigate('/')}
+            style={{
+              padding: '8px 16px', borderRadius: 9,
+              background: 'white', color: '#64748b',
+              border: '1px solid #e2e8f0',
+              fontSize: 13, fontWeight: 600, cursor: 'pointer',
+            }}
+          >
+            ← Home
+          </button>
+        </div>
+      </header>
 
-        {step === 'otp' && (
-          <div style={{ background: 'white', borderRadius: 16, padding: 28, boxShadow: '0 4px 20px rgba(0,0,0,0.08)' }}>
-            <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 6 }}>Enter OTP</h2>
-            <p style={{ color: '#718096', fontSize: 13, marginBottom: 24 }}>OTP sent to {phone} (Demo OTP: 1234)</p>
-            {error && <div style={{ background: '#fff0f0', color: '#ff3b3b', padding: '10px 14px', borderRadius: 8, marginBottom: 16, fontSize: 13 }}>{error}</div>}
-            <form onSubmit={handleOtpSubmit}>
-              <div style={{ marginBottom: 16 }}>
-                <input
-                  style={{ width: '100%', padding: '16px', border: '1.5px solid #e2e8f0', borderRadius: 8, fontSize: 24, fontWeight: 700, textAlign: 'center', letterSpacing: 8, outline: 'none', boxSizing: 'border-box' }}
-                  placeholder="0000" value={enteredOtp}
-                  onChange={e => setEnteredOtp(e.target.value)} maxLength={4} required
-                />
-              </div>
-              <button type="submit" disabled={loading}
-                style={{ width: '100%', padding: 13, background: '#0f6fff', color: 'white', border: 'none', borderRadius: 8, fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>
-                {loading ? 'Verifying...' : 'Verify →'}
-              </button>
-              <button type="button" onClick={() => setStep('phone')}
-                style={{ width: '100%', padding: 12, background: 'transparent', color: '#718096', border: 'none', fontSize: 13, cursor: 'pointer', marginTop: 8 }}>
-                ← Back
-              </button>
-            </form>
-          </div>
-        )}
-
-        {step === 'dashboard' && patient && (
-          <div>
-            {/* Patient card */}
-            <div style={{ background: '#0f6fff', borderRadius: 16, padding: 20, color: 'white', marginBottom: 20 }}>
-              <div style={{ fontSize: 20, fontWeight: 700 }}>{patient.name}</div>
-              <div style={{ fontSize: 13, opacity: 0.85, marginTop: 4 }}>Age {patient.age} · {patient.phone}</div>
-            </div>
-
-            {/* Tabs */}
-            <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-              {['prescriptions', 'reminders'].map(t => (
-                <button key={t} onClick={() => setTab(t)}
+      {/* ─── MAIN CONTENT ─── */}
+      <div style={{
+        flex: 1, display: 'grid',
+        gridTemplateColumns: '1.5fr 1fr',
+        gap: 0, minHeight: 'calc(100vh - 62px)',
+      }}>
+        {/* LEFT: Map */}
+        <div style={{ padding: '20px 20px 20px 28px', display: 'flex', flexDirection: 'column' }}>
+          {/* Sector filter pills */}
+          <div style={{
+            display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap',
+          }}>
+            {filters.map(f => {
+              const isActive = sectorFilter === f.id;
+              const colors = { ALL: '#0d9488', GENERAL: '#0d9488', AYURVEDIC: '#d97706', DENTAL: '#7c3aed' };
+              const color = colors[f.id];
+              return (
+                <button
+                  key={f.id}
+                  onClick={() => setSectorFilter(f.id)}
                   style={{
-                    flex: 1, padding: '10px', borderRadius: 8, border: 'none',
-                    background: tab === t ? '#0f6fff' : 'white',
-                    color: tab === t ? 'white' : '#718096',
-                    fontWeight: 600, fontSize: 13, cursor: 'pointer',
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.06)'
-                  }}>
-                  {t === 'prescriptions' ? '💊 Prescriptions' : '⏰ Reminders'}
+                    padding: '7px 16px', borderRadius: 20,
+                    border: `1.5px solid ${isActive ? color : '#e2e8f0'}`,
+                    background: isActive ? `${color}10` : 'white',
+                    color: isActive ? color : '#64748b',
+                    fontSize: 12.5, fontWeight: 700,
+                    cursor: 'pointer', transition: 'all 0.15s',
+                    display: 'flex', alignItems: 'center', gap: 5,
+                    fontFamily: "'Plus Jakarta Sans', sans-serif",
+                  }}
+                >
+                  {f.icon} {f.label}
                 </button>
-              ))}
-            </div>
-
-            {tab === 'prescriptions' && (
-              <div>
-                {history?.consultations?.length === 0 ? (
-                  <div style={{ background: 'white', borderRadius: 12, padding: 32, textAlign: 'center', color: '#718096' }}>
-                    No prescriptions yet
-                  </div>
-                ) : (
-                  history?.consultations?.map(c => (
-                    <div key={c.consultation_id} style={{ background: 'white', borderRadius: 12, padding: 18, marginBottom: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
-                      <div style={{ fontSize: 12, color: '#718096', marginBottom: 6 }}>
-                        {new Date(c.consultation_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
-                      </div>
-                      <div style={{ fontWeight: 700, marginBottom: 4 }}>{c.chief_complaint}</div>
-                      <div style={{ fontSize: 13, color: '#718096' }}>{c.diagnosis_note}</div>
-                      {c.followup_date && (
-                        <div style={{ marginTop: 10, padding: '6px 10px', background: '#e8f0ff', borderRadius: 6, fontSize: 12, color: '#0f6fff', fontWeight: 600 }}>
-                          📅 Follow-up: {new Date(c.followup_date).toLocaleDateString('en-IN')}
-                        </div>
-                      )}
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
-
-            {tab === 'reminders' && (
-              <div>
-                {['morning', 'afternoon', 'night'].map(time => (
-                  schedule[time].length > 0 && (
-                    <div key={time} style={{ background: 'white', borderRadius: 12, padding: 18, marginBottom: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
-                      <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 12, textTransform: 'capitalize' }}>
-                        {time === 'morning' ? '🌅' : time === 'afternoon' ? '☀️' : '🌙'} {time}
-                      </div>
-                      {schedule[time].map((med, i) => (
-                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: i < schedule[time].length - 1 ? '1px solid #f0f0f0' : 'none' }}>
-                          <div>
-                            <div style={{ fontWeight: 600, fontSize: 14 }}>{med.medicine_name}</div>
-                            <div style={{ fontSize: 12, color: '#718096' }}>{med.notes || 'As directed'}</div>
-                          </div>
-                          <div style={{ fontWeight: 700, color: '#0f6fff' }}>{med.dosage}</div>
-                        </div>
-                      ))}
-                    </div>
-                  )
-                ))}
-                {!schedule.morning.length && !schedule.afternoon.length && !schedule.night.length && (
-                  <div style={{ background: 'white', borderRadius: 12, padding: 32, textAlign: 'center', color: '#718096' }}>
-                    No active medicines
-                  </div>
-                )}
-              </div>
-            )}
+              );
+            })}
+            <span style={{ fontSize: 12, color: '#94a3b8', alignSelf: 'center', marginLeft: 4 }}>
+              {clinics.filter(c => sectorFilter === 'ALL' || (c.sector || '').toUpperCase() === sectorFilter).length} clinics
+            </span>
           </div>
-        )}
+
+          {/* Map component */}
+          <div style={{ flex: 1, minHeight: 400 }}>
+            <ClinicMap
+              clinics={clinics}
+              sectorFilter={sectorFilter}
+            />
+          </div>
+        </div>
+
+        {/* RIGHT: Chatbot + Medicine Check */}
+        <div style={{
+          padding: '20px 28px 20px 0',
+          display: 'flex', flexDirection: 'column',
+          gap: 12,
+          borderLeft: '1px solid #f1f5f9',
+        }}>
+          {/* Chatbot */}
+          <div style={{ flex: 1, minHeight: 300 }}>
+            <SymptomChatbot onRecommend={handleChatbotRecommend} />
+          </div>
+
+          {/* Medicine Check button */}
+          <button
+            onClick={() => setShowMedicineCheck(true)}
+            style={{
+              padding: '14px 20px', borderRadius: 14,
+              background: 'linear-gradient(135deg, #f0fdfa, #ecfdf5)',
+              border: '1px solid #a7f3d0',
+              display: 'flex', alignItems: 'center', gap: 10,
+              cursor: 'pointer', transition: 'all 0.15s',
+              textAlign: 'left',
+            }}
+            onMouseEnter={e => e.currentTarget.style.boxShadow = '0 4px 16px rgba(13,148,136,0.1)'}
+            onMouseLeave={e => e.currentTarget.style.boxShadow = 'none'}
+          >
+            <div style={{
+              width: 42, height: 42, borderRadius: 12,
+              background: 'white', border: '1px solid #d1fae5',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 20,
+            }}>💊</div>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: 14, color: '#0f172a' }}>Check Your Medicine</div>
+              <div style={{ fontSize: 12, color: '#64748b', marginTop: 1 }}>Look up medicine info or scan a strip</div>
+            </div>
+            <span style={{ marginLeft: 'auto', color: '#0d9488', fontSize: 18 }}>→</span>
+          </button>
+        </div>
       </div>
+
+      {/* ─── MODALS ─── */}
+      {showMedicineCheck && (
+        <MedicineCheck onClose={() => setShowMedicineCheck(false)} />
+      )}
+
+      {showPrescriptions && (
+        <>
+          <div
+            style={{
+              position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.3)',
+              zIndex: 1400, backdropFilter: 'blur(2px)',
+            }}
+            onClick={() => setShowPrescriptions(false)}
+          />
+          <PrescriptionDrawer onClose={() => setShowPrescriptions(false)} />
+        </>
+      )}
+
+      {/* ─── RESPONSIVE ─── */}
+      <style>{`
+        @media (max-width: 900px) {
+          div[style*="grid-template-columns: 1.5fr 1fr"] {
+            grid-template-columns: 1fr !important;
+          }
+        }
+      `}</style>
     </div>
   );
 };
