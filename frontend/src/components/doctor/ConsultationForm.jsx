@@ -17,7 +17,7 @@ const ConsultationCard = ({ consultation }) => {
         </div>
         {consultation.followup_date && (
           <span style={{ fontSize: 11, color: 'var(--primary)', fontWeight: 600 }}>
-            📅 Follow-up: {new Date(consultation.followup_date).toLocaleDateString('en-IN')}
+             Follow-up: {new Date(consultation.followup_date).toLocaleDateString('en-IN')}
           </span>
         )}
       </div>
@@ -35,7 +35,7 @@ const ConsultationCard = ({ consultation }) => {
           background: 'var(--primary-light)', borderRadius: 6,
           color: 'var(--primary)'
         }}>
-          📌 {consultation.followup_instructions}
+           {consultation.followup_instructions}
         </div>
       )}
     </div>

@@ -61,7 +61,7 @@ const QueueItem = ({ patient, onStart, onView }) => {
           className={`btn ${isInConsult ? 'btn-primary' : 'btn-success'} btn-sm`}
           onClick={() => isInConsult ? onView(patient) : onStart(patient)}
         >
-          {isInConsult ? 'Continue' : '▶ Start'}
+          {isInConsult ? 'Continue' : ' Start'}
         </button>
       )}
       {isDone && (

@@ -52,7 +52,7 @@ const InventoryManagement = () => {
       <Sidebar />
       <div className="main-content">
         <div className="page-header">
-          <h2>📦 Inventory Management</h2>
+          <h2> Inventory Management</h2>
           <p>Track medicines, consumables and equipment</p>
         </div>
 
@@ -134,7 +134,7 @@ const InventoryManagement = () => {
                 onClick={() => setTab('all')}>All ({inventory.length})</button>
               <button className={`btn btn-sm ${tab === 'low' ? 'btn-danger' : 'btn-outline'}`}
                 onClick={() => setTab('low')}>
-                ⚠️ Low Stock ({lowStock.length})
+                 Low Stock ({lowStock.length})
               </button>
             </div>
             <InventoryTable items={displayItems} onUpdateStock={handleUpdateStock} />

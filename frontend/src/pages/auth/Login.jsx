@@ -14,7 +14,7 @@ const Login = () => {
     id: 'DOCTOR',
     label: 'Doctor',
     desc: 'Consult & manage patients',
-    icon: '👨‍⚕️',
+    icon: '‍',
     color: '#2563eb',
     bg: '#eff6ff',
   },
@@ -22,7 +22,7 @@ const Login = () => {
     id: 'RECEPTIONIST',
     label: 'Receptionist',
     desc: 'Manage appointments & walk-ins',
-    icon: '🧑‍💼',
+    icon: '‍',
     color: '#059669',
     bg: '#d1fae5',
   },
@@ -30,7 +30,7 @@ const Login = () => {
     id: 'PATIENT',
     label: 'Patient',
     desc: 'Book appointments & view records',
-    icon: '🧑',
+    icon: '',
     color: '#7c3aed',
     bg: '#ede9fe',
   },
@@ -127,7 +127,7 @@ const Login = () => {
           boxShadow: '0 20px 60px rgba(0,0,0,0.08), 0 4px 20px rgba(0,0,0,0.05)',
           border: '1px solid #e2e8f0',
         }}>
-          <h2 style={{ fontSize: 20, fontWeight: 800, color: '#0f172a', marginBottom: 4 }}>Welcome back 👋</h2>
+          <h2 style={{ fontSize: 20, fontWeight: 800, color: '#0f172a', marginBottom: 4 }}>Welcome back </h2>
           <p style={{ color: '#64748b', fontSize: 13.5, marginBottom: 28 }}>Select your role and sign in</p>
 
           {/* Role cards */}
@@ -209,7 +209,7 @@ const Login = () => {
                   border: '1px solid #fecaca',
                   display: 'flex', alignItems: 'center', gap: 6,
                 }}>
-                  ⚠️ {error}
+                   {error}
                 </div>
               )}
 

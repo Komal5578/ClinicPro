@@ -43,7 +43,7 @@ const Analytics = () => {
       <Sidebar />
       <div className="main-content">
         <div className="page-header">
-          <h2>📊 Today's Analytics</h2>
+          <h2> Today's Analytics</h2>
           <p>Overview of today's clinic activity</p>
         </div>
 
@@ -97,7 +97,7 @@ const Analytics = () => {
             <div className="grid-2">
               {/* Appointment breakdown */}
               <div className="card">
-                <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 16 }}>📅 Appointments ({appointments.length})</h3>
+                <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 16 }}> Appointments ({appointments.length})</h3>
                 {appointments.length === 0 ? (
                   <div className="empty-state"><p>No appointments today</p></div>
                 ) : (
@@ -117,7 +117,7 @@ const Analytics = () => {
 
               {/* Walk-in breakdown */}
               <div className="card">
-                <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 16 }}>🚶 Walk-ins ({walkIns.length})</h3>
+                <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 16 }}> Walk-ins ({walkIns.length})</h3>
                 {walkIns.length === 0 ? (
                   <div className="empty-state"><p>No walk-ins today</p></div>
                 ) : (

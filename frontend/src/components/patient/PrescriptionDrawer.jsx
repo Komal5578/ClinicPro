@@ -63,7 +63,7 @@ const PrescriptionDrawer = ({ onClose }) => {
         background: 'linear-gradient(135deg, #f0fdfa, #ecfdf5)',
       }}>
         <div>
-          <div style={{ fontWeight: 700, fontSize: 16, color: '#0f172a' }}>📋 My Records</div>
+          <div style={{ fontWeight: 700, fontSize: 16, color: '#0f172a' }}> My Records</div>
           <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>View prescriptions & reminders</div>
         </div>
         <button onClick={onClose} style={{
@@ -71,7 +71,7 @@ const PrescriptionDrawer = ({ onClose }) => {
           background: 'white', border: '1px solid #e2e8f0',
           fontSize: 15, cursor: 'pointer', color: '#64748b',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}>✕</button>
+        }}></button>
       </div>
 
       {/* Content */}
@@ -80,7 +80,7 @@ const PrescriptionDrawer = ({ onClose }) => {
           <div style={{
             background: '#fee2e2', color: '#991b1b', padding: '10px 14px',
             borderRadius: 10, fontSize: 13, marginBottom: 16, border: '1px solid #fecaca',
-          }}>⚠️ {error}</div>
+          }}> {error}</div>
         )}
 
         {/* Phone step */}
@@ -173,7 +173,7 @@ const PrescriptionDrawer = ({ onClose }) => {
                   color: tab === t ? 'white' : '#64748b',
                   fontWeight: 600, fontSize: 12.5, cursor: 'pointer',
                 }}>
-                  {t === 'prescriptions' ? '💊 Prescriptions' : '⏰ Reminders'}
+                  {t === 'prescriptions' ? ' Prescriptions' : ' Reminders'}
                 </button>
               ))}
             </div>
@@ -196,7 +196,7 @@ const PrescriptionDrawer = ({ onClose }) => {
                         borderRadius: 6, fontSize: 11, color: '#0d9488', fontWeight: 600,
                         display: 'inline-block',
                       }}>
-                        📅 Follow-up: {new Date(c.followup_date).toLocaleDateString('en-IN')}
+                         Follow-up: {new Date(c.followup_date).toLocaleDateString('en-IN')}
                       </div>
                     )}
                   </div>

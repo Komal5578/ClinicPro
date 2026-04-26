@@ -24,7 +24,7 @@ const PatientCard = ({ patient, onNewConsultation, onViewHistory }) => {
         <div style={{ display: 'flex', gap: 8 }}>
           {onViewHistory && (
             <button className="btn btn-outline btn-sm" onClick={onViewHistory}>
-              📋 History
+               History
             </button>
           )}
           {onNewConsultation && (

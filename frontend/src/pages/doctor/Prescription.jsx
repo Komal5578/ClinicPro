@@ -59,14 +59,14 @@ const Prescription = () => {
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
           <button className="btn btn-outline btn-sm" onClick={() => navigate(-1)}>← Back</button>
           <div className="page-header" style={{ margin: 0 }}>
-            <h2>💊 Write Prescription</h2>
+            <h2> Write Prescription</h2>
             <p>Consultation #{consultation_id}</p>
           </div>
         </div>
 
         {success ? (
           <div className="card" style={{ maxWidth: 600, textAlign: 'center', padding: 40 }}>
-            <div style={{ fontSize: 48, marginBottom: 16 }}>✅</div>
+            <div style={{ fontSize: 48, marginBottom: 16 }}></div>
             <h3 style={{ fontSize: 20, fontWeight: 700 }}>Prescription Saved!</h3>
             <p style={{ color: 'var(--text-muted)', marginTop: 8, marginBottom: 24 }}>
               The prescription has been saved and inventory alerts triggered if any medicine is low.
@@ -159,7 +159,7 @@ const Prescription = () => {
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
               <button type="button" className="btn btn-outline" onClick={() => navigate(-1)}>Cancel</button>
               <button type="submit" className="btn btn-success" disabled={loading}>
-                {loading ? 'Saving...' : '✓ Save Prescription'}
+                {loading ? 'Saving...' : ' Save Prescription'}
               </button>
             </div>
           </form>

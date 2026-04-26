@@ -85,7 +85,7 @@ const Modal = ({
             onMouseOver={e => { e.currentTarget.style.background = '#fee'; e.currentTarget.style.color = 'var(--danger, #ff3b3b)'; }}
             onMouseOut={e => { e.currentTarget.style.background = 'var(--bg, #f4f6fb)'; e.currentTarget.style.color = 'var(--text-muted, #718096)'; }}
           >
-            ✕
+            
           </button>
         </div>
 

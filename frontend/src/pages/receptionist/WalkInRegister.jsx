@@ -130,7 +130,7 @@ const WalkInRegister = () => {
                     background: isActive ? '#2563eb' : isDone ? '#d1fae5' : '#f1f5f9',
                     color: isActive ? 'white' : isDone ? '#059669' : '#94a3b8',
                   }}>
-                    {isDone ? '✓ ' : ''}{s.label}
+                    {isDone ? ' ' : ''}{s.label}
                   </div>
                 );
               })}
@@ -139,7 +139,7 @@ const WalkInRegister = () => {
             <div className="card">
               {error && (
                 <div className="alert alert-danger" style={{ marginBottom: 18 }}>
-                  ⚠️ {error}
+                   {error}
                 </div>
               )}
 
@@ -147,7 +147,7 @@ const WalkInRegister = () => {
               {step === 'search' && (
                 <div>
                   <div style={{ marginBottom: 20 }}>
-                    <h3 style={{ fontSize: 17, fontWeight: 700, marginBottom: 4 }}>🔍 Find Patient</h3>
+                    <h3 style={{ fontSize: 17, fontWeight: 700, marginBottom: 4 }}> Find Patient</h3>
                     <p style={{ color: '#64748b', fontSize: 13 }}>Search by phone to find returning patients</p>
                   </div>
                   <div className="form-group">
@@ -167,7 +167,7 @@ const WalkInRegister = () => {
                     </div>
                   </div>
                   <div style={{ fontSize: 12.5, color: '#94a3b8', marginTop: 4 }}>
-                    💡 New patients will be prompted to register
+                     New patients will be prompted to register
                   </div>
                 </div>
               )}
@@ -176,7 +176,7 @@ const WalkInRegister = () => {
               {step === 'register' && (
                 <form onSubmit={handleRegister}>
                   <div style={{ marginBottom: 20 }}>
-                    <h3 style={{ fontSize: 17, fontWeight: 700, marginBottom: 4 }}>➕ New Patient</h3>
+                    <h3 style={{ fontSize: 17, fontWeight: 700, marginBottom: 4 }}> New Patient</h3>
                     <div style={{ display: 'inline-flex', padding: '4px 10px', background: '#fef3c7', color: '#92400e', borderRadius: 6, fontSize: 12, fontWeight: 600 }}>
                       Not found in system · Creating new record
                     </div>
@@ -236,7 +236,7 @@ const WalkInRegister = () => {
               {step === 'walkin' && patient && (
                 <form onSubmit={handleWalkIn}>
                   <div style={{ marginBottom: 20 }}>
-                    <h3 style={{ fontSize: 17, fontWeight: 700, marginBottom: 10 }}>✅ Patient Found</h3>
+                    <h3 style={{ fontSize: 17, fontWeight: 700, marginBottom: 10 }}> Patient Found</h3>
                     <div style={{
                       display: 'flex', alignItems: 'center', gap: 12,
                       padding: '12px 16px', background: '#f0fdf4',
@@ -258,7 +258,7 @@ const WalkInRegister = () => {
                       {[
                         { val: 'REGULAR', label: 'Regular', color: '#64748b', bg: '#f1f5f9' },
                         { val: 'PRIORITY', label: 'Priority', color: '#d97706', bg: '#fef3c7' },
-                        { val: 'URGENT', label: 'Urgent 🚨', color: '#dc2626', bg: '#fee2e2' },
+                        { val: 'URGENT', label: 'Urgent ', color: '#dc2626', bg: '#fee2e2' },
                       ].map(p => (
                         <button
                           key={p.val}
@@ -292,7 +292,7 @@ const WalkInRegister = () => {
                   <div style={{ display: 'flex', gap: 10 }}>
                     <button type="button" className="btn btn-outline" onClick={reset}>← Back</button>
                     <button type="submit" className="btn btn-success" disabled={loading} style={{ flex: 1 }}>
-                      {loading ? 'Adding...' : '✓ Add to Queue'}
+                      {loading ? 'Adding...' : ' Add to Queue'}
                     </button>
                   </div>
                 </form>
@@ -308,7 +308,7 @@ const WalkInRegister = () => {
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     fontSize: 36, margin: '0 auto 20px',
                   }}>
-                    ✅
+                    
                   </div>
                   <h3 style={{ fontSize: 19, fontWeight: 800, marginBottom: 6 }}>Added to Queue!</h3>
                   {token && (
@@ -349,7 +349,7 @@ const WalkInRegister = () => {
 
             {walkIns.length === 0 ? (
               <div className="empty-state" style={{ padding: '36px 16px' }}>
-                <div className="empty-state-icon">🚶</div>
+                <div className="empty-state-icon"></div>
                 <p>Queue is empty</p>
                 <p style={{ fontSize: 12.5 }}>Register the first walk-in above</p>
               </div>

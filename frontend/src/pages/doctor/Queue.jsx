@@ -104,7 +104,7 @@ const Queue = () => {
             className={`tab-pill ${activeTab === 'walkins' ? 'active' : ''}`}
             onClick={() => setActiveTab('walkins')}
           >
-            🚶 Walk-ins
+             Walk-ins
             {waiting.length > 0 && (
               <span style={{
                 background: '#dc2626', color: 'white',
@@ -119,7 +119,7 @@ const Queue = () => {
             className={`tab-pill ${activeTab === 'appointments' ? 'active' : ''}`}
             onClick={() => setActiveTab('appointments')}
           >
-            📅 Appointments
+             Appointments
           </button>
         </div>
 
@@ -154,7 +154,7 @@ const Queue = () => {
             {waiting.length === 0 ? (
               <div className="card">
                 <div className="empty-state">
-                  <div className="empty-state-icon">✅</div>
+                  <div className="empty-state-icon"></div>
                   <p style={{ fontWeight: 600, fontSize: 15 }}>Queue is clear!</p>
                   <p style={{ fontSize: 13, marginTop: 4 }}>No patients waiting right now.</p>
                 </div>
@@ -169,7 +169,7 @@ const Queue = () => {
                     key={w.walkin_id}
                     patient={w}
                     onAction={() => startConsultation(w)}
-                    actionLabel="▶ Start"
+                    actionLabel=" Start"
                     actionClass="btn-success"
                   />
                 ))}
@@ -199,7 +199,7 @@ const Queue = () => {
           <div className="card">
             {appointments.length === 0 ? (
               <div className="empty-state">
-                <div className="empty-state-icon">📅</div>
+                <div className="empty-state-icon"></div>
                 <p>No appointments today</p>
               </div>
             ) : (

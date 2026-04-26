@@ -1,4 +1,4 @@
-const TIME_ICONS = { morning: '🌅', afternoon: '☀️', night: '🌙' };
+const TIME_ICONS = { morning: '', afternoon: '', night: '' };
 
 const ReminderCard = ({ time, medicines }) => {
   if (!medicines || medicines.length === 0) return null;

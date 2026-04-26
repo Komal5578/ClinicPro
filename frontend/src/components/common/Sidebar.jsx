@@ -2,17 +2,17 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 
 const doctorLinks = [
-  { to: '/doctor/queue', icon: '🏥', label: 'Queue' },
-  { to: '/doctor/followup', icon: '📋', label: 'Follow-ups' },
-  { to: '/doctor/analytics', icon: '📊', label: 'Analytics' },
+  { to: '/doctor/queue', icon: '', label: 'Queue' },
+  { to: '/doctor/followup', icon: '', label: 'Follow-ups' },
+  { to: '/doctor/analytics', icon: '', label: 'Analytics' },
 ];
 
 const receptionistLinks = [
-  { to: '/receptionist/dashboard', icon: '⚡', label: 'Dashboard' },
-  { to: '/receptionist/walkin', icon: '🚶', label: 'Walk-in Register' },
-  { to: '/receptionist/appointments', icon: '📅', label: 'Appointments' },
-  { to: '/receptionist/inventory', icon: '📦', label: 'Inventory' },
-  { to: '/receptionist/staff', icon: '👥', label: 'Staff' },
+  { to: '/receptionist/dashboard', icon: '', label: 'Dashboard' },
+  { to: '/receptionist/walkin', icon: '', label: 'Walk-in Register' },
+  { to: '/receptionist/appointments', icon: '', label: 'Appointments' },
+  { to: '/receptionist/inventory', icon: '', label: 'Inventory' },
+  { to: '/receptionist/staff', icon: '', label: 'Staff' },
 ];
 
 const Sidebar = () => {
@@ -33,7 +33,7 @@ const Sidebar = () => {
       <div className="sidebar-logo">
         <h1>Clinic<span>Pro</span></h1>
         <div className="sidebar-role">
-          {user?.role === 'doctor' ? '🩺 Doctor Portal' : '🏢 Reception Portal'}
+          {user?.role === 'doctor' ? '🩺 Doctor Portal' : ' Reception Portal'}
         </div>
       </div>
 

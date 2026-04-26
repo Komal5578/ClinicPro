@@ -73,7 +73,7 @@ const MedicineCheck = ({ onClose }) => {
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
           <div>
-            <h2 style={{ fontSize: 20, fontWeight: 800, color: '#0f172a' }}>💊 Medicine Check</h2>
+            <h2 style={{ fontSize: 20, fontWeight: 800, color: '#0f172a' }}> Medicine Check</h2>
             <p style={{ fontSize: 13, color: '#64748b', marginTop: 4 }}>Look up medicine information</p>
           </div>
           <button
@@ -84,7 +84,7 @@ const MedicineCheck = ({ onClose }) => {
               fontSize: 16, cursor: 'pointer', color: '#64748b',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}
-          >✕</button>
+          ></button>
         </div>
 
         {/* Tabs */}
@@ -93,8 +93,8 @@ const MedicineCheck = ({ onClose }) => {
           borderRadius: 10, marginBottom: 20,
         }}>
           {[
-            { id: 'text', label: '✏️ Type Name' },
-            { id: 'photo', label: '📷 Upload Photo' },
+            { id: 'text', label: ' Type Name' },
+            { id: 'photo', label: ' Upload Photo' },
           ].map(t => (
             <button
               key={t.id}
@@ -156,7 +156,7 @@ const MedicineCheck = ({ onClose }) => {
             }}
             onClick={() => document.getElementById('med-photo').click()}
           >
-            <div style={{ fontSize: 36, marginBottom: 8 }}>📸</div>
+            <div style={{ fontSize: 36, marginBottom: 8 }}></div>
             <div style={{ fontSize: 14, fontWeight: 600, color: '#334155' }}>
               {loading ? 'Processing...' : 'Click to upload photo of medicine strip'}
             </div>
@@ -172,7 +172,7 @@ const MedicineCheck = ({ onClose }) => {
             background: '#fef3c7', color: '#92400e', padding: '10px 14px',
             borderRadius: 10, fontSize: 13, marginBottom: 16,
             border: '1px solid #fde68a',
-          }}>ℹ️ {error}</div>
+          }}>ℹ {error}</div>
         )}
 
         {/* Result */}
@@ -196,15 +196,15 @@ const MedicineCheck = ({ onClose }) => {
                 color: result.medicine.prescription ? '#991b1b' : '#065f46',
                 fontSize: 11, fontWeight: 700,
               }}>
-                {result.medicine.prescription ? '💊 Prescription Required' : '✅ Over the Counter'}
+                {result.medicine.prescription ? ' Prescription Required' : ' Over the Counter'}
               </div>
             </div>
 
             <div style={{ padding: '16px 18px' }}>
               {[
-                { label: 'Used For', value: result.medicine.use, icon: '🎯' },
-                { label: 'Common Dosage', value: result.medicine.dosage, icon: '💊' },
-                { label: 'Side Effects', value: result.medicine.sideEffects, icon: '⚠️' },
+                { label: 'Used For', value: result.medicine.use, icon: '' },
+                { label: 'Common Dosage', value: result.medicine.dosage, icon: '' },
+                { label: 'Side Effects', value: result.medicine.sideEffects, icon: '' },
               ].map((item, i) => (
                 <div key={i} style={{
                   padding: '10px 0',
@@ -227,7 +227,7 @@ const MedicineCheck = ({ onClose }) => {
             textAlign: 'center', padding: '24px 16px',
             color: '#64748b', fontSize: 14,
           }}>
-            <div style={{ fontSize: 32, marginBottom: 8 }}>🔍</div>
+            <div style={{ fontSize: 32, marginBottom: 8 }}></div>
             {result.message}
           </div>
         )}
@@ -239,7 +239,7 @@ const MedicineCheck = ({ onClose }) => {
           fontSize: 11, color: '#94a3b8', lineHeight: 1.6,
           border: '1px solid #f1f5f9',
         }}>
-          ⚕️ <strong>Disclaimer:</strong> This information is for reference only. Always consult your doctor before taking any medicine.
+           <strong>Disclaimer:</strong> This information is for reference only. Always consult your doctor before taking any medicine.
         </div>
       </div>
     </div>

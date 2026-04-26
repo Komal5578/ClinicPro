@@ -89,7 +89,7 @@ const ClinicAuth = () => {
               border: '1px solid #fecaca',
               display: 'flex', alignItems: 'center', gap: 6,
             }}>
-              ⚠️ {error}
+               {error}
             </div>
           )}
 
@@ -101,8 +101,8 @@ const ClinicAuth = () => {
               </label>
               <div style={{ display: 'flex', gap: 8 }}>
                 {[
-                  { id: 'doctor', label: '👨‍⚕️ Doctor', color: '#0d9488' },
-                  { id: 'receptionist', label: '🧑‍💼 Receptionist', color: '#0d9488' },
+                  { id: 'doctor', label: '‍ Doctor', color: '#0d9488' },
+                  { id: 'receptionist', label: '‍ Receptionist', color: '#0d9488' },
                 ].map(r => (
                   <button
                     key={r.id}
@@ -216,7 +216,7 @@ const ClinicAuth = () => {
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontSize: 36, marginBottom: 28,
           }}>
-            🏥
+            
           </div>
 
           <h2 style={{ fontSize: 22, fontWeight: 800, color: '#0f172a', marginBottom: 8 }}>

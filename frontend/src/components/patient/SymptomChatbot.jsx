@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { getSymptomRecommendation } from '../../services/api';
 
 const questions = [
-  { id: 'symptom', text: "Hello! 👋 I'll help you find the right doctor. What is your main symptom today?", type: 'text' },
+  { id: 'symptom', text: "Hello!  I'll help you find the right doctor. What is your main symptom today?", type: 'text' },
   { id: 'duration', text: 'How long have you been experiencing this?', type: 'options', options: ['Just today', '2-3 days', 'More than a week', 'Chronic / recurring'] },
   { id: 'dental', text: 'Is it related to your teeth, gums, or mouth?', type: 'options', options: ['Yes', 'No'] },
   { id: 'traditional', text: 'Do you prefer traditional / Ayurvedic medicine?', type: 'options', options: ['Yes, I prefer Ayurvedic', 'No, allopathic is fine', 'No preference'] },
@@ -121,7 +121,7 @@ const SymptomChatbot = ({ onRecommend }) => {
         background: 'linear-gradient(135deg, #f0fdfa, #ecfdf5)',
       }}>
         <div style={{ fontWeight: 700, fontSize: 15, color: '#0f172a' }}>
-          🤖 Symptom Guide
+           Symptom Guide
         </div>
         <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
           Not sure which doctor? Answer a few questions.
@@ -179,7 +179,7 @@ const SymptomChatbot = ({ onRecommend }) => {
                 color: '#059669', cursor: 'pointer',
               }}
             >
-              🔄 Start Over
+               Start Over
             </button>
           </div>
         )}

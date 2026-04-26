@@ -118,7 +118,7 @@ const Consultation = () => {
                     alignItems: 'center', justifyContent: 'center',
                     fontSize: 32, margin: '0 auto 20px',
                   }}>
-                    ✅
+                    
                   </div>
                   <h3 style={{ fontSize: 20, fontWeight: 800, marginBottom: 8 }}>Consultation Saved</h3>
                   <p style={{ color: '#64748b', fontSize: 14, marginBottom: 28 }}>
@@ -129,7 +129,7 @@ const Consultation = () => {
                       className="btn btn-primary"
                       onClick={() => navigate(`/doctor/prescription/${consultationId}`)}
                     >
-                      💊 Write Prescription
+                       Write Prescription
                     </button>
                     <button
                       className="btn btn-outline"
@@ -149,8 +149,8 @@ const Consultation = () => {
                       <label className="form-label">Visit Type</label>
                       <div style={{ display: 'flex', gap: 8 }}>
                         {[
-                          { val: 'WALKIN', label: '🚶 Walk-in' },
-                          { val: 'BOOKED', label: '📅 Booked Appointment' },
+                          { val: 'WALKIN', label: ' Walk-in' },
+                          { val: 'BOOKED', label: ' Booked Appointment' },
                         ].map(t => (
                           <button
                             key={t.val} type="button"
@@ -181,7 +181,7 @@ const Consultation = () => {
                           className={`btn btn-sm ${isListening && activeField === 'chief_complaint' ? 'btn-danger' : 'btn-outline'}`}
                           style={{ fontSize: 12 }}
                         >
-                          {isListening && activeField === 'chief_complaint' ? '⏹ Stop' : '🎤 Voice'}
+                          {isListening && activeField === 'chief_complaint' ? ' Stop' : ' Voice'}
                         </button>
                       </div>
                       <textarea
@@ -204,7 +204,7 @@ const Consultation = () => {
                           className={`btn btn-sm ${isListening && activeField === 'diagnosis_note' ? 'btn-danger' : 'btn-outline'}`}
                           style={{ fontSize: 12 }}
                         >
-                          {isListening && activeField === 'diagnosis_note' ? '⏹ Stop' : '🎤 Voice'}
+                          {isListening && activeField === 'diagnosis_note' ? ' Stop' : ' Voice'}
                         </button>
                       </div>
                       <textarea
@@ -221,7 +221,7 @@ const Consultation = () => {
                       borderTop: '1px solid #f1f5f9', paddingTop: 20, marginTop: 4
                     }}>
                       <div style={{ fontSize: 13, fontWeight: 700, color: '#475569', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 6 }}>
-                        📅 Schedule Follow-up
+                         Schedule Follow-up
                         <span style={{ fontSize: 11, color: '#94a3b8', fontWeight: 400 }}>optional</span>
                       </div>
                       <div className="grid-2" style={{ gap: 14 }}>
@@ -253,7 +253,7 @@ const Consultation = () => {
                         Cancel
                       </button>
                       <button type="submit" className="btn btn-primary" disabled={loading}>
-                        {loading ? 'Saving...' : '✓ Save Consultation'}
+                        {loading ? 'Saving...' : ' Save Consultation'}
                       </button>
                     </div>
                   </form>
@@ -268,7 +268,7 @@ const Consultation = () => {
               {conditions.length > 0 && (
                 <div className="card" style={{ padding: 18 }}>
                   <div style={{ fontSize: 12.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.6, color: '#64748b', marginBottom: 12 }}>
-                    ⚠️ Known Conditions
+                     Known Conditions
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
                     {conditions.map(c => (
@@ -291,7 +291,7 @@ const Consultation = () => {
               {lastVisits.length > 0 && (
                 <div className="card" style={{ padding: 18 }}>
                   <div style={{ fontSize: 12.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.6, color: '#64748b', marginBottom: 12 }}>
-                    🕐 Recent Visits
+                     Recent Visits
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                     {lastVisits.map(v => (
@@ -316,7 +316,7 @@ const Consultation = () => {
 
               {lastVisits.length === 0 && conditions.length === 0 && (
                 <div className="card" style={{ padding: 18, textAlign: 'center' }}>
-                  <div style={{ fontSize: 28, marginBottom: 8 }}>🆕</div>
+                  <div style={{ fontSize: 28, marginBottom: 8 }}></div>
                   <div style={{ fontSize: 13, color: '#64748b', fontWeight: 500 }}>New patient</div>
                   <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 4 }}>No previous visit history</div>
                 </div>

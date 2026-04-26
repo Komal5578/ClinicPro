@@ -16,11 +16,11 @@ const MedicineRow = ({ item, idx, onChange, onRemove, showRemove }) => {
     <div className="card" style={{ marginBottom: 14, borderLeft: '3px solid var(--primary)' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
         <h4 style={{ fontSize: 14, fontWeight: 700, color: 'var(--primary)' }}>
-          💊 Medicine #{idx + 1}
+           Medicine #{idx + 1}
         </h4>
         {showRemove && (
           <button type="button" className="btn btn-danger btn-sm" onClick={() => onRemove(idx)}>
-            ✕ Remove
+             Remove
           </button>
         )}
       </div>

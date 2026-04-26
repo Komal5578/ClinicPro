@@ -61,7 +61,7 @@ const AppointmentBooking = () => {
       <Sidebar />
       <div className="main-content">
         <div className="page-header">
-          <h2>📅 Appointment Booking</h2>
+          <h2> Appointment Booking</h2>
           <p>Book slots for patients and view today's schedule</p>
         </div>
 
@@ -84,7 +84,7 @@ const AppointmentBooking = () => {
               </div>
               {patient && (
                 <div style={{ padding: '10px 14px', background: 'var(--success-light)', borderRadius: 8, fontSize: 13 }}>
-                  ✅ <strong>{patient.name}</strong> · Age {patient.age} · {patient.phone}
+                   <strong>{patient.name}</strong> · Age {patient.age} · {patient.phone}
                 </div>
               )}
             </div>
@@ -121,7 +121,7 @@ const AppointmentBooking = () => {
 
             <button className="btn btn-primary" onClick={handleBook} disabled={loading || !patient || !selectedSlot}
               style={{ width: '100%' }}>
-              {loading ? 'Booking...' : '✓ Book Appointment'}
+              {loading ? 'Booking...' : ' Book Appointment'}
             </button>
           </div>
 

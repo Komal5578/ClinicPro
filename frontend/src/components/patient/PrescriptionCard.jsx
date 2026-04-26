@@ -43,7 +43,7 @@ const PrescriptionCard = ({ consultation, prescriptions }) => {
       {meds.length > 0 && (
         <div style={{ borderTop: '1px solid #f0f0f0', paddingTop: 12 }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: '#718096', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>
-            💊 Medicines
+             Medicines
           </div>
           {meds.map((med, i) => (
             <div key={i} style={{
@@ -74,7 +74,7 @@ const PrescriptionCard = ({ consultation, prescriptions }) => {
           fontSize: 13, color: '#0f6fff', fontWeight: 600,
           display: 'flex', alignItems: 'center', gap: 6
         }}>
-          📅 Follow-up: {new Date(consultation.followup_date).toLocaleDateString('en-IN', {
+           Follow-up: {new Date(consultation.followup_date).toLocaleDateString('en-IN', {
             day: 'numeric', month: 'short', year: 'numeric'
           })}
           {consultation.followup_instructions && (

@@ -101,7 +101,7 @@ const ClinicMap = ({ clinics, sectorFilter, onClinicSelect }) => {
                 ${(clinic.sector || 'General').toUpperCase()}
               </span>
               <div style="font-size: 11px; color: #94a3b8; margin-top: 6px;">
-                🕐 ${clinic.morning_start?.slice(0, 5) || '09:00'} - ${clinic.morning_end?.slice(0, 5) || '13:00'} / ${clinic.evening_start?.slice(0, 5) || '17:00'} - ${clinic.evening_end?.slice(0, 5) || '21:00'}
+                 ${clinic.morning_start?.slice(0, 5) || '09:00'} - ${clinic.morning_end?.slice(0, 5) || '13:00'} / ${clinic.evening_start?.slice(0, 5) || '17:00'} - ${clinic.evening_end?.slice(0, 5) || '21:00'}
               </div>
             </div>
           `);
@@ -132,7 +132,7 @@ const ClinicMap = ({ clinics, sectorFilter, onClinicSelect }) => {
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="🔍 Search clinics by name or area..."
+            placeholder=" Search clinics by name or area..."
             style={{
               flex: 1, padding: '10px 14px',
               border: '1.5px solid #e2e8f0', borderRadius: 10,
@@ -148,7 +148,7 @@ const ClinicMap = ({ clinics, sectorFilter, onClinicSelect }) => {
           borderRadius: 14, padding: 32, textAlign: 'center',
           border: '1px solid #e2e8f0', marginBottom: 16,
         }}>
-          <div style={{ fontSize: 36, marginBottom: 8 }}>🗺️</div>
+          <div style={{ fontSize: 36, marginBottom: 8 }}></div>
           <div style={{ fontWeight: 700, fontSize: 14, color: '#334155', marginBottom: 4 }}>
             Map View Requires API Key
           </div>
@@ -191,7 +191,7 @@ const ClinicMap = ({ clinics, sectorFilter, onClinicSelect }) => {
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     fontWeight: 800, fontSize: 16, flexShrink: 0,
                   }}>
-                    {clinic.sector === 'DENTAL' ? '🦷' : clinic.sector === 'AYURVEDIC' ? '🌿' : '🩺'}
+                    {clinic.sector === 'DENTAL' ? '' : clinic.sector === 'AYURVEDIC' ? '' : '🩺'}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontWeight: 700, fontSize: 13.5, color: '#0f172a' }}>{clinic.clinic_name}</div>
@@ -199,7 +199,7 @@ const ClinicMap = ({ clinics, sectorFilter, onClinicSelect }) => {
                       {clinic.doctor_name || 'Doctor'} · {(clinic.sector || 'General')}
                     </div>
                     <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>
-                      🕐 {clinic.morning_start?.slice(0, 5) || '09:00'}-{clinic.morning_end?.slice(0, 5) || '13:00'} / {clinic.evening_start?.slice(0, 5) || '17:00'}-{clinic.evening_end?.slice(0, 5) || '21:00'}
+                       {clinic.morning_start?.slice(0, 5) || '09:00'}-{clinic.morning_end?.slice(0, 5) || '13:00'} / {clinic.evening_start?.slice(0, 5) || '17:00'}-{clinic.evening_end?.slice(0, 5) || '21:00'}
                     </div>
                   </div>
                   <span style={{
@@ -229,7 +229,7 @@ const ClinicMap = ({ clinics, sectorFilter, onClinicSelect }) => {
         <input
           value={search}
           onChange={e => setSearch(e.target.value)}
-          placeholder="🔍 Search by area or pincode..."
+          placeholder=" Search by area or pincode..."
           style={{
             flex: 1, padding: '10px 14px',
             border: '1.5px solid #e2e8f0', borderRadius: 10,

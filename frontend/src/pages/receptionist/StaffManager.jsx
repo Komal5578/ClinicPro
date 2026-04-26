@@ -60,7 +60,7 @@ const StaffManager = () => {
       <Sidebar />
       <div className="main-content">
         <div className="page-header">
-          <h2>⚙️ Staff & Inventory</h2>
+          <h2> Staff & Inventory</h2>
           <p>Manage clinic staff and inventory</p>
         </div>
 
@@ -69,7 +69,7 @@ const StaffManager = () => {
           {['staff', 'inventory'].map(t => (
             <button key={t} className={`btn ${tab === t ? 'btn-primary' : 'btn-outline'}`}
               onClick={() => { setTab(t); setError(''); setSuccess(''); }}>
-              {t === 'staff' ? '👥 Staff' : `📦 Inventory ${lowStock.length > 0 ? `(${lowStock.length} low)` : ''}`}
+              {t === 'staff' ? ' Staff' : ` Inventory ${lowStock.length > 0 ? `(${lowStock.length} low)` : ''}`}
             </button>
           ))}
         </div>

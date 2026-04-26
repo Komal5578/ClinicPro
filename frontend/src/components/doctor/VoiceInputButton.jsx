@@ -53,7 +53,7 @@ const VoiceInputButton = ({ onTranscript, disabled }) => {
             Listening...
           </>
         ) : (
-          <>🎤 Voice Input</>
+          <> Voice Input</>
         )}
       </button>
       {error && (

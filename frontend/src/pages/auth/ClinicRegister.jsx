@@ -196,7 +196,7 @@ const ClinicRegister = () => {
               background: '#f0fdfa', display: 'flex',
               alignItems: 'center', justifyContent: 'center',
               fontSize: 26, marginBottom: 24,
-            }}>🏢</div>
+            }}></div>
             <h2 style={{ fontSize: 22, fontWeight: 800, color: '#0f172a', marginBottom: 6 }}>
               Let's verify your clinic first
             </h2>
@@ -208,7 +208,7 @@ const ClinicRegister = () => {
               <div style={{
                 background: '#fee2e2', color: '#991b1b', padding: '10px 14px',
                 borderRadius: 10, fontSize: 13, marginBottom: 18, border: '1px solid #fecaca',
-              }}>⚠️ {gstError}</div>
+              }}> {gstError}</div>
             )}
 
             <div style={{ marginBottom: 20 }}>
@@ -236,7 +236,7 @@ const ClinicRegister = () => {
                   transition: 'all 0.2s',
                 }}
               >
-                {gstLoading ? '⏳ Verifying...' : '🔍 Verify GST Number'}
+                {gstLoading ? ' Verifying...' : ' Verify GST Number'}
               </button>
             ) : (
               <div>
@@ -246,7 +246,7 @@ const ClinicRegister = () => {
                   border: '1px solid #a7f3d0', marginBottom: 20,
                   display: 'flex', alignItems: 'center', gap: 10,
                 }}>
-                  <span style={{ fontSize: 22 }}>✅</span>
+                  <span style={{ fontSize: 22 }}></span>
                   <div>
                     <div style={{ fontWeight: 700, fontSize: 14, color: '#065f46' }}>
                       {gstVerified.business_name}
@@ -302,7 +302,7 @@ const ClinicRegister = () => {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               {[
                 { id: 'doctor', icon: '🩺', title: 'I am the Doctor', desc: 'Full clinic setup with NMC verification' },
-                { id: 'receptionist', icon: '🧑‍💼', title: 'I am the Receptionist', desc: 'Link to an existing verified clinic' },
+                { id: 'receptionist', icon: '‍', title: 'I am the Receptionist', desc: 'Link to an existing verified clinic' },
               ].map(r => (
                 <div
                   key={r.id}
@@ -352,7 +352,7 @@ const ClinicRegister = () => {
               Set up your profile and clinic configuration
             </p>
 
-            {error && <div style={{ background: '#fee2e2', color: '#991b1b', padding: '10px 14px', borderRadius: 10, fontSize: 13, marginBottom: 18, border: '1px solid #fecaca' }}>⚠️ {error}</div>}
+            {error && <div style={{ background: '#fee2e2', color: '#991b1b', padding: '10px 14px', borderRadius: 10, fontSize: 13, marginBottom: 18, border: '1px solid #fecaca' }}> {error}</div>}
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
               <div><label style={labelStyle}>Full Name *</label>
@@ -401,7 +401,7 @@ const ClinicRegister = () => {
                       fontSize: 12, fontWeight: 700,
                       color: nmcStatus === 'verified' ? '#059669' : nmcStatus === 'failed' ? '#dc2626' : '#d97706',
                     }}>
-                      {nmcStatus === 'checking' ? '⏳ Checking...' : nmcStatus === 'verified' ? '✅ Verified' : '❌ Failed'}
+                      {nmcStatus === 'checking' ? ' Checking...' : nmcStatus === 'verified' ? ' Verified' : ' Failed'}
                     </span>
                   )}
                 </div>
@@ -418,7 +418,7 @@ const ClinicRegister = () => {
                     <img src={certPreview} alt="Certificate" style={{ maxHeight: 100, borderRadius: 8 }} />
                   ) : (
                     <div>
-                      <div style={{ fontSize: 28, marginBottom: 6 }}>📄</div>
+                      <div style={{ fontSize: 28, marginBottom: 6 }}></div>
                       <div style={{ fontSize: 13, color: '#64748b' }}>Click to upload certificate</div>
                     </div>
                   )}
@@ -481,7 +481,7 @@ const ClinicRegister = () => {
               Your account will be linked to the verified clinic
             </p>
 
-            {error && <div style={{ background: '#fee2e2', color: '#991b1b', padding: '10px 14px', borderRadius: 10, fontSize: 13, marginBottom: 18, border: '1px solid #fecaca' }}>⚠️ {error}</div>}
+            {error && <div style={{ background: '#fee2e2', color: '#991b1b', padding: '10px 14px', borderRadius: 10, fontSize: 13, marginBottom: 18, border: '1px solid #fecaca' }}> {error}</div>}
 
             {/* GST badge */}
             <div style={{
@@ -489,7 +489,7 @@ const ClinicRegister = () => {
               fontSize: 13, color: '#065f46', marginBottom: 20,
               border: '1px solid #a7f3d0', fontWeight: 600,
             }}>
-              ✅ Linked to: {gstVerified?.business_name} ({gst})
+               Linked to: {gstVerified?.business_name} ({gst})
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
@@ -511,7 +511,7 @@ const ClinicRegister = () => {
               borderRadius: 10, border: '1px solid #fde68a',
               fontSize: 13, color: '#92400e', lineHeight: 1.6,
             }}>
-              ⚠️ <strong>Important:</strong> Your account will be sent to the clinic doctor for approval.
+               <strong>Important:</strong> Your account will be sent to the clinic doctor for approval.
               You will receive a notification when approved.
             </div>
 
@@ -538,7 +538,7 @@ const ClinicRegister = () => {
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               fontSize: 44, margin: '0 auto 24px',
               animation: 'fadeUp 0.5s ease',
-            }}>✅</div>
+            }}></div>
 
             {role === 'doctor' ? (
               <>

@@ -12,7 +12,7 @@ const AppointmentCard = ({ appointment }) => (
       {new Date(appointment.booked_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
     </div>
     <div style={{ fontWeight: 700, fontSize: 15 }}>
-      📅 {appointment.slot_start_time?.slice(0, 5)} appointment
+       {appointment.slot_start_time?.slice(0, 5)} appointment
     </div>
     <div style={{ fontSize: 13, color: '#718096', marginTop: 4 }}>
       Status: <span style={{ fontWeight: 600, textTransform: 'capitalize' }}>{appointment.status?.toLowerCase()}</span>

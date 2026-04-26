@@ -40,7 +40,7 @@ const Dashboard = () => {
       <Sidebar />
       <div className="main-content">
         <div className="page-header">
-          <h2>👋 Welcome, {user?.name || 'Receptionist'}</h2>
+          <h2> Welcome, {user?.name || 'Receptionist'}</h2>
           <p>{new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
         </div>
 
@@ -73,7 +73,7 @@ const Dashboard = () => {
             onClick={() => navigate('/receptionist/walkin')}
             onMouseOver={e => e.currentTarget.style.boxShadow = 'var(--shadow-lg)'}
             onMouseOut={e => e.currentTarget.style.boxShadow = 'var(--shadow)'}>
-            <div style={{ fontSize: 36, marginBottom: 12 }}>🚶</div>
+            <div style={{ fontSize: 36, marginBottom: 12 }}></div>
             <h3 style={{ fontSize: 17, fontWeight: 700 }}>Register Walk-in</h3>
             <p style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 6 }}>
               Search patient by phone, register if new, add to queue
@@ -87,7 +87,7 @@ const Dashboard = () => {
             onClick={() => navigate('/receptionist/appointments')}
             onMouseOver={e => e.currentTarget.style.boxShadow = 'var(--shadow-lg)'}
             onMouseOut={e => e.currentTarget.style.boxShadow = 'var(--shadow)'}>
-            <div style={{ fontSize: 36, marginBottom: 12 }}>📅</div>
+            <div style={{ fontSize: 36, marginBottom: 12 }}></div>
             <h3 style={{ fontSize: 17, fontWeight: 700 }}>Book Appointment</h3>
             <p style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 6 }}>
               View available slots and book appointments for patients

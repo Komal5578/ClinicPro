@@ -33,10 +33,10 @@ const PatientPortal = () => {
   };
 
   const filters = [
-    { id: 'ALL', label: 'All', icon: '🏥' },
+    { id: 'ALL', label: 'All', icon: '' },
     { id: 'GENERAL', label: 'General', icon: '🩺' },
-    { id: 'AYURVEDIC', label: 'Ayurvedic', icon: '🌿' },
-    { id: 'DENTAL', label: 'Dental', icon: '🦷' },
+    { id: 'AYURVEDIC', label: 'Ayurvedic', icon: '' },
+    { id: 'DENTAL', label: 'Dental', icon: '' },
   ];
 
   return (
@@ -80,7 +80,7 @@ const PatientPortal = () => {
               display: 'flex', alignItems: 'center', gap: 6,
             }}
           >
-            📋 My Prescriptions
+             My Prescriptions
           </button>
           <button
             onClick={() => navigate('/')}
@@ -176,7 +176,7 @@ const PatientPortal = () => {
               background: 'white', border: '1px solid #d1fae5',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               fontSize: 20,
-            }}>💊</div>
+            }}></div>
             <div>
               <div style={{ fontWeight: 700, fontSize: 14, color: '#0f172a' }}>Check Your Medicine</div>
               <div style={{ fontSize: 12, color: '#64748b', marginTop: 1 }}>Look up medicine info or scan a strip</div>
