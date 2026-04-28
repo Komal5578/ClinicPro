@@ -39,12 +39,12 @@ const symptomTriage = async (req, res) => {
       traditional: traditional || '',
     });
 
-    return res.json({ ...result, source: 'gemini' });
+    return res.json({ ...result, source: result.provider || 'ai' });
   } catch (err) {
     const fallback = getFallbackRecommendation({ dental, traditional });
     return res.status(200).json({
       ...fallback,
-      warning: 'Gemini unavailable, fallback recommendation used',
+      warning: 'AI provider unavailable, fallback recommendation used',
       error: err.message,
     });
   }

@@ -1,5 +1,11 @@
 const https = require('https');
-const { AI_API_KEY, GEMINI_API_KEY, GEMINI_MODEL } = require('../config/env');
+const {
+  AI_API_KEY,
+  GEMINI_API_KEY,
+  GEMINI_MODEL,
+  OPENAI_API_KEY,
+  OPENAI_MODEL,
+} = require('../config/env');
 
 let cachedResolvedModel = null;
 
@@ -29,7 +35,7 @@ const parseJsonFromText = (text) => {
   }
 };
 
-const postJson = ({ hostname, path, body }) => new Promise((resolve, reject) => {
+const postJson = ({ hostname, path, body, headers = {}, providerName = 'AI' }) => new Promise((resolve, reject) => {
   const payload = JSON.stringify(body);
 
   const req = https.request(
@@ -41,6 +47,7 @@ const postJson = ({ hostname, path, body }) => new Promise((resolve, reject) => 
       headers: {
         'Content-Type': 'application/json',
         'Content-Length': Buffer.byteLength(payload),
+        ...headers,
       },
     },
     (res) => {
@@ -59,7 +66,7 @@ const postJson = ({ hostname, path, body }) => new Promise((resolve, reject) => 
         }
 
         if (res.statusCode < 200 || res.statusCode >= 300) {
-          reject(new Error(`Gemini API error (${res.statusCode}): ${responseBody}`));
+          reject(new Error(`${providerName} API error (${res.statusCode}): ${responseBody}`));
           return;
         }
 
@@ -186,8 +193,52 @@ const normalizeRecommendation = (result) => {
   };
 };
 
+const getOpenAiSymptomRecommendation = async (answers) => {
+  const key = OPENAI_API_KEY || (String(AI_API_KEY || '').startsWith('sk-') ? AI_API_KEY : '');
+  if (!key) {
+    throw new Error('Missing OpenAI key: set OPENAI_API_KEY (or AI_API_KEY with sk- prefix) in backend .env');
+  }
+
+  const model = OPENAI_MODEL || 'gpt-4o-mini';
+  const prompt = [
+    'You are a medical triage assistant for a clinic finder app.',
+    'Using the patient answers, recommend only one sector from GENERAL, AYURVEDIC, DENTAL.',
+    'Do not diagnose disease. Provide short practical guidance.',
+    'Return STRICT JSON only in this exact shape:',
+    '{"sector":"GENERAL|AYURVEDIC|DENTAL","label":"string","reason":"string","response":"string"}',
+    'Patient answers:',
+    JSON.stringify(answers),
+  ].join('\n');
+
+  const raw = await postJson({
+    hostname: 'api.openai.com',
+    path: '/v1/chat/completions',
+    headers: {
+      Authorization: `Bearer ${key}`,
+    },
+    providerName: 'OpenAI',
+    body: {
+      model,
+      temperature: 0.3,
+      messages: [{ role: 'user', content: prompt }],
+      response_format: { type: 'json_object' },
+    },
+  });
+
+  const text = raw?.choices?.[0]?.message?.content || '';
+  const parsed = parseJsonFromText(text);
+  if (!parsed) {
+    throw new Error('Unable to parse OpenAI JSON output');
+  }
+
+  return {
+    ...normalizeRecommendation(parsed),
+    provider: 'openai',
+  };
+};
+
 const getGeminiSymptomRecommendation = async (answers) => {
-  const key = GEMINI_API_KEY || AI_API_KEY;
+  const key = GEMINI_API_KEY || (String(AI_API_KEY || '').startsWith('sk-') ? '' : AI_API_KEY);
   if (!key) {
     throw new Error('Missing Gemini key: set GEMINI_API_KEY or AI_API_KEY in backend .env');
   }
@@ -225,7 +276,18 @@ const getGeminiSymptomRecommendation = async (answers) => {
     throw new Error('Unable to parse Gemini JSON output');
   }
 
-  return normalizeRecommendation(parsed);
+  return {
+    ...normalizeRecommendation(parsed),
+    provider: 'gemini',
+  };
 };
 
-module.exports = { getGeminiSymptomRecommendation };
+const getSymptomRecommendation = async (answers) => {
+  const hasOpenAiKey = Boolean(OPENAI_API_KEY) || String(AI_API_KEY || '').startsWith('sk-');
+  if (hasOpenAiKey) {
+    return getOpenAiSymptomRecommendation(answers);
+  }
+  return getGeminiSymptomRecommendation(answers);
+};
+
+module.exports = { getGeminiSymptomRecommendation: getSymptomRecommendation };

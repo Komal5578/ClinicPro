@@ -81,17 +81,17 @@ const ClinicRegister = () => {
     setLoading(true);
     setError('');
     try {
-      const formData = new FormData();
-      Object.entries(doctorForm).forEach(([k, v]) => {
-        if (v !== null) formData.append(k, v);
-      });
-      formData.append('gst_number', gst.toUpperCase());
-      formData.append('clinic_name', gstVerified?.business_name || '');
-      formData.append('address', gstVerified?.address || '');
-
       const res = await fetch('http://localhost:5000/api/register/doctor', {
         method: 'POST',
-        body: formData,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...doctorForm,
+          gst_number: gst.toUpperCase(),
+          clinic_name: gstVerified?.business_name || '',
+          address: gstVerified?.address || '',
+          certificate: undefined,
+          confirmPassword: undefined,
+        }),
       });
       const data = await res.json();
       if (res.ok) {

@@ -1,7 +1,6 @@
-import { useState, useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { getSymptomRecommendation } from '../../services/api';
 
-// ─── QUESTION TREE (max 4 questions per path) ─────────────────────────────────
 const questionMap = {
   start: {
     id: 'start',
@@ -30,8 +29,6 @@ const questionMap = {
       return 'q_duration';
     },
   },
-
-  // ── DENTAL (path: start → q_dental → q_duration → DONE = 3 questions) ──
   q_dental: {
     id: 'q_dental',
     text: 'What exactly are you experiencing?',
@@ -40,8 +37,6 @@ const questionMap = {
     next: () => 'q_duration',
     sector: () => 'DENTAL',
   },
-
-  // ── FEVER (path: start → q_fever → q_duration → DONE = 3 questions) ──
   q_fever: {
     id: 'q_fever',
     text: 'What are you feeling most right now?',
@@ -50,8 +45,6 @@ const questionMap = {
     next: () => 'q_duration',
     sector: () => 'GENERAL',
   },
-
-  // ── STOMACH (path: start → q_stomach → q_ayurvedic → DONE = 3 questions) ──
   q_stomach: {
     id: 'q_stomach',
     text: 'Which best describes your stomach issue?',
@@ -60,8 +53,6 @@ const questionMap = {
     next: () => 'q_ayurvedic',
     sector: () => 'GENERAL',
   },
-
-  // ── MENTAL (path: start → q_mental → q_duration → DONE = 3 questions) ──
   q_mental: {
     id: 'q_mental',
     text: 'What are you dealing with most?',
@@ -70,8 +61,6 @@ const questionMap = {
     next: () => 'q_duration',
     sector: () => 'GENERAL',
   },
-
-  // ── JOINT (path: start → q_joint → q_ayurvedic → DONE = 3 questions) ──
   q_joint: {
     id: 'q_joint',
     text: 'Which area is most affected?',
@@ -80,8 +69,6 @@ const questionMap = {
     next: () => 'q_ayurvedic',
     sector: () => 'GENERAL',
   },
-
-  // ── SKIN (path: start → q_skin → q_ayurvedic → DONE = 3 questions) ──
   q_skin: {
     id: 'q_skin',
     text: 'What is happening with your skin?',
@@ -90,8 +77,6 @@ const questionMap = {
     next: () => 'q_ayurvedic',
     sector: () => 'SKIN',
   },
-
-  // ── CHEST (path: start → q_chest → q_duration → DONE = 3 questions) ──
   q_chest: {
     id: 'q_chest',
     text: 'What chest or breathing issue are you feeling?',
@@ -100,8 +85,6 @@ const questionMap = {
     next: () => 'q_duration',
     sector: () => 'GENERAL',
   },
-
-  // ── EYES (path: start → q_eyes → q_duration → DONE = 3 questions) ──
   q_eyes: {
     id: 'q_eyes',
     text: 'Which issue are you experiencing?',
@@ -110,8 +93,6 @@ const questionMap = {
     next: () => 'q_duration',
     sector: () => 'GENERAL',
   },
-
-  // ── SHARED Q3: DURATION ──
   q_duration: {
     id: 'q_duration',
     text: 'How long have you been experiencing this?',
@@ -119,8 +100,6 @@ const questionMap = {
     options: ['Just today', '2–3 days', 'About a week', 'More than a month'],
     next: () => 'DONE',
   },
-
-  // ── SHARED Q3: AYURVEDIC PREFERENCE ──
   q_ayurvedic: {
     id: 'q_ayurvedic',
     text: 'Do you prefer Ayurvedic / traditional treatment or modern medicine?',
@@ -130,7 +109,6 @@ const questionMap = {
   },
 };
 
-// ─── SECTOR LOGIC ─────────────────────────────────────────────────────────────
 const getSector = (answers) => {
   const area = answers.start || '';
   if (area.includes('Teeth')) return { sector: 'DENTAL', label: 'Dentist' };
@@ -142,7 +120,6 @@ const getSector = (answers) => {
   return { sector: 'GENERAL', label: 'General Physician' };
 };
 
-
 const getReason = (answers, label) => {
   const area = answers.start || '';
   if (area.includes('Teeth')) return 'Your symptoms point to a dental issue. A dentist can diagnose and treat it effectively.';
@@ -153,7 +130,6 @@ const getReason = (answers, label) => {
   return `For ${area.replace(/[^\w\s]/g, '').trim() || 'your'} symptoms, a ${label} is the best starting point.`;
 };
 
-// ─── CLINIC CARD (shown inside chat) ─────────────────────────────────────────
 const sectorColors = {
   GENERAL: '#0d9488',
   AYURVEDIC: '#d97706',
@@ -169,7 +145,6 @@ const ClinicCard = ({ clinic, onRoute, onBook }) => {
       borderRadius: 12, padding: '12px 14px', marginBottom: 8,
       boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
     }}>
-      {/* Top row */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
         <div>
           <div style={{ fontWeight: 700, fontSize: 13.5, color: '#0f172a' }}>{clinic.clinic_name}</div>
@@ -186,25 +161,20 @@ const ClinicCard = ({ clinic, onRoute, onBook }) => {
         </div>
       </div>
 
-      {/* Address */}
       {clinic.address && (
-        <div style={{ fontSize: 11.5, color: '#64748b', marginBottom: 6 }}>
-          📍 {clinic.address}
-        </div>
+        <div style={{ fontSize: 11.5, color: '#64748b', marginBottom: 6 }}>📍 {clinic.address}</div>
       )}
 
-      {/* Timings */}
       <div style={{
         fontSize: 11, color: '#475569',
         background: '#f8fafc', borderRadius: 8, padding: '6px 10px',
         marginBottom: 10, lineHeight: 1.8,
       }}>
-         {clinic.morning_start?.slice(0, 5) || '09:00'} – {clinic.morning_end?.slice(0, 5) || '13:00'}
+        {clinic.morning_start?.slice(0, 5) || '09:00'} – {clinic.morning_end?.slice(0, 5) || '13:00'}
         &nbsp;&nbsp;|&nbsp;&nbsp;
-         {clinic.evening_start?.slice(0, 5) || '17:00'} – {clinic.evening_end?.slice(0, 5) || '21:00'}
+        {clinic.evening_start?.slice(0, 5) || '17:00'} – {clinic.evening_end?.slice(0, 5) || '21:00'}
       </div>
 
-      {/* Actions */}
       <div style={{ display: 'flex', gap: 8 }}>
         <button
           onClick={() => onRoute(clinic)}
@@ -215,7 +185,7 @@ const ClinicCard = ({ clinic, onRoute, onBook }) => {
             color, cursor: 'pointer',
           }}
         >
-           Get Route
+          Get Route
         </button>
         <button
           onClick={() => onBook(clinic)}
@@ -233,7 +203,6 @@ const ClinicCard = ({ clinic, onRoute, onBook }) => {
   );
 };
 
-// ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
 const SymptomChatbot = ({ onRecommend, clinics = [], onRouteRequest, onClinicSelect }) => {
   const [messages, setMessages] = useState([{ from: 'bot', text: questionMap.start.text }]);
   const [currentQId, setCurrentQId] = useState('start');
@@ -246,7 +215,6 @@ const SymptomChatbot = ({ onRecommend, clinics = [], onRouteRequest, onClinicSel
 
   const currentQ = questionMap[currentQId];
 
-  // Auto scroll to bottom
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, nearbyClinics]);
@@ -264,9 +232,7 @@ const SymptomChatbot = ({ onRecommend, clinics = [], onRouteRequest, onClinicSel
       setCurrentQId(nextId);
       return;
     }
-    
 
-    // Done — analyse
     setDone(true);
     setIsAnalyzing(true);
     setMessages([...newMessages, { from: 'bot', text: '🔍 Analysing your symptoms...', isLoading: true }]);
@@ -281,26 +247,22 @@ const SymptomChatbot = ({ onRecommend, clinics = [], onRouteRequest, onClinicSel
       if (data?.sector) finalRec = { sector: data.sector, label: data.label, reason: data.reason };
     } catch (_) {}
 
-    // Filter clinics for this sector
+    const sectorKeywords = {
+      GENERAL: ['general', 'physician', 'gp', 'medicine', 'family'],
+      DENTAL: ['dental', 'dentist', 'teeth', 'tooth', 'oral'],
+      AYURVEDIC: ['ayurvedic', 'ayurveda', 'herbal', 'naturo'],
+      SKIN: ['skin', 'derma', 'cosmet'],
+    };
 
-const sectorKeywords = {
-  GENERAL: ['general', 'physician', 'gp', 'medicine', 'family'],
-  DENTAL: ['dental', 'dentist', 'teeth', 'tooth', 'oral'],
-  AYURVEDIC: ['ayurvedic', 'ayurveda', 'herbal', 'naturo'],
-  SKIN: ['skin', 'derma', 'cosmet'],
-};
-
-const matched = clinics.filter((c) => {
-  const s = (c.sector || '').toLowerCase();
-  if (!s) return finalRec.sector === 'GENERAL'; // no sector = treat as general
-  // Exact match first
-  if (s.toUpperCase() === finalRec.sector) return true;
-  // Keyword match
-  return (sectorKeywords[finalRec.sector] || []).some((kw) => s.includes(kw));
-});
+    const matched = clinics.filter((clinic) => {
+      const s = (clinic.sector || '').toLowerCase();
+      if (!s) return finalRec.sector === 'GENERAL';
+      if (s.toUpperCase() === finalRec.sector) return true;
+      return (sectorKeywords[finalRec.sector] || []).some((kw) => s.includes(kw));
+    });
 
     setRecommendation(finalRec);
-    setNearbyClinics(matched.slice(0, 3)); // show top 3 in chat
+    setNearbyClinics(matched.slice(0, 3));
 
     setMessages((prev) => [
       ...prev.filter((m) => !m.isLoading),
@@ -324,12 +286,11 @@ const matched = clinics.filter((c) => {
     setIsAnalyzing(false);
     setNearbyClinics([]);
     if (onRecommend) onRecommend(null);
+    if (onRouteRequest) onRouteRequest(null);
   };
 
   const renderText = (text) =>
-    text.split(/\*\*(.*?)\*\*/g).map((p, i) =>
-      i % 2 === 1 ? <strong key={i}>{p}</strong> : p
-    );
+    text.split(/\*\*(.*?)\*\*/g).map((part, index) => (index % 2 === 1 ? <strong key={index}>{part}</strong> : part));
 
   const sectorColor = recommendation ? (sectorColors[recommendation.sector] || '#0d9488') : '#0d9488';
 
@@ -339,42 +300,37 @@ const matched = clinics.filter((c) => {
       background: 'white', borderRadius: 18,
       border: '1px solid #e2e8f0', overflow: 'hidden',
     }}>
-      {/* Header */}
       <div style={{
         padding: '14px 20px', borderBottom: '1px solid #f1f5f9',
         background: 'linear-gradient(135deg, #f0fdfa, #ecfdf5)',
         flexShrink: 0,
       }}>
         <div style={{ fontWeight: 700, fontSize: 15, color: '#0f172a' }}>🩺 Symptom Guide</div>
-        <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
-          Answer a few questions — I'll find the right doctor for you.
-        </div>
+        <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>Answer a few questions — I&apos;ll find the right doctor for you.</div>
       </div>
 
-      {/* Messages */}
       <div style={{
         flex: 1, overflowY: 'auto', padding: '16px 16px 8px',
         display: 'flex', flexDirection: 'column', gap: 10,
       }}>
-        {messages.map((m, i) => (
-          <div key={i} style={{ alignSelf: m.from === 'user' ? 'flex-end' : 'flex-start', maxWidth: '88%' }}>
+        {messages.map((message, index) => (
+          <div key={index} style={{ alignSelf: message.from === 'user' ? 'flex-end' : 'flex-start', maxWidth: '88%' }}>
             <div style={{
               padding: '10px 14px',
-              borderRadius: m.from === 'user' ? '14px 14px 4px 14px' : '14px 14px 14px 4px',
-              background: m.from === 'user'
+              borderRadius: message.from === 'user' ? '14px 14px 4px 14px' : '14px 14px 14px 4px',
+              background: message.from === 'user'
                 ? 'linear-gradient(135deg, #0d9488, #0f766e)'
-                : m.isRecommendation ? '#f0fdfa' : '#f8fafc',
-              color: m.from === 'user' ? 'white' : '#0f172a',
+                : message.isRecommendation ? '#f0fdfa' : '#f8fafc',
+              color: message.from === 'user' ? 'white' : '#0f172a',
               fontSize: 13.5, lineHeight: 1.6,
-              border: m.isRecommendation ? '1px solid #a7f3d0' : m.from === 'bot' ? '1px solid #f1f5f9' : 'none',
-              fontStyle: m.isLoading ? 'italic' : 'normal',
+              border: message.isRecommendation ? '1px solid #a7f3d0' : message.from === 'bot' ? '1px solid #f1f5f9' : 'none',
+              fontStyle: message.isLoading ? 'italic' : 'normal',
             }}>
-              {renderText(m.text)}
+              {renderText(message.text)}
             </div>
           </div>
         ))}
 
-        {/* Recommendation summary card */}
         {recommendation && (
           <div style={{
             background: `linear-gradient(135deg, ${sectorColor}12, ${sectorColor}06)`,
@@ -382,20 +338,15 @@ const matched = clinics.filter((c) => {
             borderRadius: 14, padding: '14px 16px', marginTop: 4,
           }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: sectorColor, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>
-               Recommended Specialist
+              Recommended Specialist
             </div>
-            <div style={{ fontSize: 17, fontWeight: 800, color: '#0f172a', marginBottom: 4 }}>
-              {recommendation.label}
-            </div>
-
-            {/* Clinic count */}
+            <div style={{ fontSize: 17, fontWeight: 800, color: '#0f172a', marginBottom: 4 }}>{recommendation.label}</div>
             <div style={{ fontSize: 12, color: '#475569', marginBottom: 12 }}>
               {nearbyClinics.length > 0
                 ? `Showing ${nearbyClinics.length} nearby ${recommendation.label.toLowerCase()} clinic${nearbyClinics.length > 1 ? 's' : ''} — map is also filtered.`
                 : `No registered ${recommendation.label.toLowerCase()} clinics found in the app yet.`}
             </div>
 
-            {/* Clinic cards inside chat */}
             {nearbyClinics.map((clinic) => (
               <ClinicCard
                 key={clinic.clinic_id}
@@ -419,13 +370,12 @@ const matched = clinics.filter((c) => {
           </div>
         )}
 
-        {/* Option buttons */}
         {!done && !isAnalyzing && currentQ?.type === 'options' && (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 4 }}>
-            {currentQ.options.map((opt) => (
+            {currentQ.options.map((option) => (
               <button
-                key={opt}
-                onClick={() => handleAnswer(opt)}
+                key={option}
+                onClick={() => handleAnswer(option)}
                 style={{
                   padding: '8px 14px', borderRadius: 20,
                   border: '1.5px solid #e2e8f0', background: 'white',
@@ -444,7 +394,7 @@ const matched = clinics.filter((c) => {
                   e.currentTarget.style.color = '#334155';
                 }}
               >
-                {opt}
+                {option}
               </button>
             ))}
           </div>

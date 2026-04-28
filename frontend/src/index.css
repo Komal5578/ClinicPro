@@ -1,11 +1,8 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-/* index.css — base resets & root setup */
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* index.css - base resets & root setup */
 
 @layer base {
   body {
