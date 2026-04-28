@@ -1,251 +1,407 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { getSymptomRecommendation } from '../../services/api';
 
-const questions = [
-  { id: 'symptom', text: "Hello!  I'll help you find the right doctor. What is your main symptom today?", type: 'text' },
-  { id: 'duration', text: 'How long have you been experiencing this?', type: 'options', options: ['Just today', '2-3 days', 'More than a week', 'Chronic / recurring'] },
-  { id: 'dental', text: 'Is it related to your teeth, gums, or mouth?', type: 'options', options: ['Yes', 'No'] },
-  { id: 'traditional', text: 'Do you prefer traditional / Ayurvedic medicine?', type: 'options', options: ['Yes, I prefer Ayurvedic', 'No, allopathic is fine', 'No preference'] },
-];
-
-const getFallbackRecommendation = (newAnswers) => {
-  let sector = 'GENERAL';
-  let label = 'General Physician';
-  let reason = 'Based on your symptoms, a general physician can diagnose and treat your condition.';
-
-  if (newAnswers.dental === 'Yes') {
-    sector = 'DENTAL';
-    label = 'Dentist';
-    reason = 'Since your symptoms are related to teeth/gums, a dental specialist is recommended.';
-  } else if (newAnswers.traditional?.includes('Ayurvedic')) {
-    sector = 'AYURVEDIC';
-    label = 'Ayurvedic Doctor';
-    reason = 'Based on your preference for traditional medicine, an Ayurvedic practitioner can help.';
-  }
-
-  return {
-    sector,
-    label,
-    reason,
-    response: `Based on your answers, I recommend visiting a ${label}. ${reason}`,
-  };
+const questionMap = {
+  start: {
+    id: 'start',
+    text: "👋 Hi! I'm your Symptom Guide. Where is your main discomfort?",
+    type: 'options',
+    options: [
+      ' Teeth / Mouth',
+      ' Fever / Cold / Flu',
+      ' Stomach / Digestion',
+      ' Head / Stress / Mental',
+      ' Muscle / Joint / Back',
+      ' Skin / Allergy',
+      ' Chest / Breathing',
+      ' Eyes / Ears / Nose',
+    ],
+    next: (ans) => {
+      const v = ans.start;
+      if (v.includes('Teeth')) return 'q_dental';
+      if (v.includes('Fever')) return 'q_fever';
+      if (v.includes('Stomach')) return 'q_stomach';
+      if (v.includes('Head') || v.includes('Mental')) return 'q_mental';
+      if (v.includes('Muscle') || v.includes('Joint')) return 'q_joint';
+      if (v.includes('Skin')) return 'q_skin';
+      if (v.includes('Chest')) return 'q_chest';
+      if (v.includes('Eyes')) return 'q_eyes';
+      return 'q_duration';
+    },
+  },
+  q_dental: {
+    id: 'q_dental',
+    text: 'What exactly are you experiencing?',
+    type: 'options',
+    options: [' Toothache / sharp pain', ' Bleeding or swollen gums', ' Sensitivity to hot/cold', ' Jaw pain or swelling', ' Cavity or broken tooth'],
+    next: () => 'q_duration',
+    sector: () => 'DENTAL',
+  },
+  q_fever: {
+    id: 'q_fever',
+    text: 'What are you feeling most right now?',
+    type: 'options',
+    options: ['🌡️ High fever (above 101°F)', ' Cold, runny nose, sneezing', ' Cough or sore throat', ' Body aches and weakness', ' Chills and shivering'],
+    next: () => 'q_duration',
+    sector: () => 'GENERAL',
+  },
+  q_stomach: {
+    id: 'q_stomach',
+    text: 'Which best describes your stomach issue?',
+    type: 'options',
+    options: [' Acidity / heartburn', ' Nausea or vomiting', ' Loose motions / diarrhea', ' Bloating or cramps', ' Loss of appetite'],
+    next: () => 'q_ayurvedic',
+    sector: () => 'GENERAL',
+  },
+  q_mental: {
+    id: 'q_mental',
+    text: 'What are you dealing with most?',
+    type: 'options',
+    options: ['Anxiety or panic attacks', ' Cannot sleep (insomnia)', ' Frequent headaches', ' Low mood / feeling down', ' Dizziness or vertigo'],
+    next: () => 'q_duration',
+    sector: () => 'GENERAL',
+  },
+  q_joint: {
+    id: 'q_joint',
+    text: 'Which area is most affected?',
+    type: 'options',
+    options: [' Knee or leg pain', ' Lower back pain', ' Shoulder or neck pain', ' Wrist or finger pain', ' Whole body ache'],
+    next: () => 'q_ayurvedic',
+    sector: () => 'GENERAL',
+  },
+  q_skin: {
+    id: 'q_skin',
+    text: 'What is happening with your skin?',
+    type: 'options',
+    options: [' Rash or redness', ' Itching or allergic reaction', ' Acne or pimples', ' Dry, flaky or peeling skin', ' Wound that is not healing'],
+    next: () => 'q_ayurvedic',
+    sector: () => 'SKIN',
+  },
+  q_chest: {
+    id: 'q_chest',
+    text: 'What chest or breathing issue are you feeling?',
+    type: 'options',
+    options: [' Chest pain or tightness', ' Shortness of breath', ' Fast or irregular heartbeat', ' Persistent cough or wheezing', '🩸 Coughing up blood'],
+    next: () => 'q_duration',
+    sector: () => 'GENERAL',
+  },
+  q_eyes: {
+    id: 'q_eyes',
+    text: 'Which issue are you experiencing?',
+    type: 'options',
+    options: ['👁️ Blurry or weak vision', '🔴 Red or itchy eyes', '👂 Ear pain or hearing loss', '👃 Blocked nose or sinuses', '💧 Watery or discharge from eyes'],
+    next: () => 'q_duration',
+    sector: () => 'GENERAL',
+  },
+  q_duration: {
+    id: 'q_duration',
+    text: 'How long have you been experiencing this?',
+    type: 'options',
+    options: ['Just today', '2–3 days', 'About a week', 'More than a month'],
+    next: () => 'DONE',
+  },
+  q_ayurvedic: {
+    id: 'q_ayurvedic',
+    text: 'Do you prefer Ayurvedic / traditional treatment or modern medicine?',
+    type: 'options',
+    options: ['🌿 Ayurvedic / herbal', '💊 Modern (allopathic)', '🤷 No preference'],
+    next: () => 'DONE',
+  },
 };
 
-const SymptomChatbot = ({ onRecommend }) => {
-  const [messages, setMessages] = useState([{ from: 'bot', text: questions[0].text }]);
-  const [currentQ, setCurrentQ] = useState(0);
+const getSector = (answers) => {
+  const area = answers.start || '';
+  if (area.includes('Teeth')) return { sector: 'DENTAL', label: 'Dentist' };
+  if (answers.q_ayurvedic?.includes('Ayurvedic')) return { sector: 'AYURVEDIC', label: 'Ayurvedic Doctor' };
+  if (area.includes('Skin')) return { sector: 'SKIN', label: 'Skin Specialist' };
+  if (area.includes('Muscle') || area.includes('Joint') || area.includes('Stomach')) {
+    if (answers.q_ayurvedic?.includes('Ayurvedic')) return { sector: 'AYURVEDIC', label: 'Ayurvedic Doctor' };
+  }
+  return { sector: 'GENERAL', label: 'General Physician' };
+};
+
+const getReason = (answers, label) => {
+  const area = answers.start || '';
+  if (area.includes('Teeth')) return 'Your symptoms point to a dental issue. A dentist can diagnose and treat it effectively.';
+  if (answers.q_ayurvedic?.includes('Ayurvedic')) return 'Since you prefer traditional/herbal medicine, an Ayurvedic practitioner is the right fit.';
+  if (area.includes('Stomach')) return 'For digestive issues, a general physician will evaluate you and prescribe the right treatment.';
+  if (area.includes('Skin')) return 'Skin issues are best assessed by a physician who can identify the cause — infection, allergy, or other.';
+  if (area.includes('Chest')) return 'Chest symptoms need to be evaluated by a doctor right away to rule out serious conditions.';
+  return `For ${area.replace(/[^\w\s]/g, '').trim() || 'your'} symptoms, a ${label} is the best starting point.`;
+};
+
+const sectorColors = {
+  GENERAL: '#0d9488',
+  AYURVEDIC: '#d97706',
+  DENTAL: '#7c3aed',
+  SKIN: '#db2777',
+};
+
+const ClinicCard = ({ clinic, onRoute, onBook }) => {
+  const color = sectorColors[(clinic.sector || 'GENERAL').toUpperCase()] || '#0d9488';
+  return (
+    <div style={{
+      background: 'white', border: `1.5px solid ${color}30`,
+      borderRadius: 12, padding: '12px 14px', marginBottom: 8,
+      boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+    }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
+        <div>
+          <div style={{ fontWeight: 700, fontSize: 13.5, color: '#0f172a' }}>{clinic.clinic_name}</div>
+          <div style={{ fontSize: 12, color: '#64748b', marginTop: 1 }}>
+            Dr. {clinic.doctor_name || 'Doctor'}
+            {clinic.specialization ? ` · ${clinic.specialization}` : ''}
+          </div>
+        </div>
+        <div style={{
+          fontSize: 10, fontWeight: 700, color, background: `${color}15`,
+          padding: '2px 8px', borderRadius: 20, whiteSpace: 'nowrap',
+        }}>
+          {(clinic.sector || 'GENERAL').toUpperCase()}
+        </div>
+      </div>
+
+      {clinic.address && (
+        <div style={{ fontSize: 11.5, color: '#64748b', marginBottom: 6 }}>📍 {clinic.address}</div>
+      )}
+
+      <div style={{
+        fontSize: 11, color: '#475569',
+        background: '#f8fafc', borderRadius: 8, padding: '6px 10px',
+        marginBottom: 10, lineHeight: 1.8,
+      }}>
+        {clinic.morning_start?.slice(0, 5) || '09:00'} – {clinic.morning_end?.slice(0, 5) || '13:00'}
+        &nbsp;&nbsp;|&nbsp;&nbsp;
+        {clinic.evening_start?.slice(0, 5) || '17:00'} – {clinic.evening_end?.slice(0, 5) || '21:00'}
+      </div>
+
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button
+          onClick={() => onRoute(clinic)}
+          style={{
+            flex: 1, padding: '7px 0',
+            background: 'white', border: `1.5px solid ${color}`,
+            borderRadius: 8, fontSize: 12, fontWeight: 600,
+            color, cursor: 'pointer',
+          }}
+        >
+          Get Route
+        </button>
+        <button
+          onClick={() => onBook(clinic)}
+          style={{
+            flex: 1, padding: '7px 0',
+            background: color, border: 'none',
+            borderRadius: 8, fontSize: 12, fontWeight: 600,
+            color: 'white', cursor: 'pointer',
+          }}
+        >
+          Book Appointment →
+        </button>
+      </div>
+    </div>
+  );
+};
+
+const SymptomChatbot = ({ onRecommend, clinics = [], onRouteRequest, onClinicSelect }) => {
+  const [messages, setMessages] = useState([{ from: 'bot', text: questionMap.start.text }]);
+  const [currentQId, setCurrentQId] = useState('start');
   const [answers, setAnswers] = useState({});
-  const [input, setInput] = useState('');
   const [done, setDone] = useState(false);
   const [recommendation, setRecommendation] = useState(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [nearbyClinics, setNearbyClinics] = useState([]);
+  const bottomRef = useRef(null);
+
+  const currentQ = questionMap[currentQId];
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, nearbyClinics]);
 
   const handleAnswer = async (answer) => {
-    const q = questions[currentQ];
-    const newAnswers = { ...answers, [q.id]: answer };
+    const newAnswers = { ...answers, [currentQ.id]: answer };
     setAnswers(newAnswers);
 
     const newMessages = [...messages, { from: 'user', text: answer }];
-    const nextQ = currentQ + 1;
+    const nextId = currentQ.next(newAnswers);
 
-    if (nextQ < questions.length) {
-      newMessages.push({ from: 'bot', text: questions[nextQ].text });
+    if (nextId !== 'DONE' && questionMap[nextId]) {
+      newMessages.push({ from: 'bot', text: questionMap[nextId].text });
       setMessages(newMessages);
-      setCurrentQ(nextQ);
-      setInput('');
+      setCurrentQId(nextId);
       return;
     }
 
     setDone(true);
     setIsAnalyzing(true);
-    setMessages([...newMessages, { from: 'bot', text: 'Thinking through your symptoms with Gemini...', isLoading: true }]);
+    setMessages([...newMessages, { from: 'bot', text: '🔍 Analysing your symptoms...', isLoading: true }]);
 
-    const fallback = getFallbackRecommendation(newAnswers);
+    const { sector, label } = getSector(newAnswers);
+    const reason = getReason(newAnswers, label);
+    const fallback = { sector, label, reason };
 
+    let finalRec = fallback;
     try {
       const { data } = await getSymptomRecommendation(newAnswers);
-      const finalRecommendation = {
-        sector: data?.sector || fallback.sector,
-        label: data?.label || fallback.label,
-        reason: data?.reason || fallback.reason,
-        response: data?.response || fallback.response,
-      };
+      if (data?.sector) finalRec = { sector: data.sector, label: data.label, reason: data.reason };
+    } catch (_) {}
 
-      setRecommendation(finalRecommendation);
-      setMessages((prev) => [
-        ...prev.filter((msg) => !msg.isLoading),
-        { from: 'bot', text: finalRecommendation.response, isRecommendation: true },
-      ]);
-      if (onRecommend) onRecommend(finalRecommendation.sector);
-    } catch (err) {
-      setRecommendation(fallback);
-      setMessages((prev) => [
-        ...prev.filter((msg) => !msg.isLoading),
-        { from: 'bot', text: fallback.response, isRecommendation: true },
-      ]);
-      if (onRecommend) onRecommend(fallback.sector);
-    } finally {
-      setIsAnalyzing(false);
-      setInput('');
-    }
-  };
+    const sectorKeywords = {
+      GENERAL: ['general', 'physician', 'gp', 'medicine', 'family'],
+      DENTAL: ['dental', 'dentist', 'teeth', 'tooth', 'oral'],
+      AYURVEDIC: ['ayurvedic', 'ayurveda', 'herbal', 'naturo'],
+      SKIN: ['skin', 'derma', 'cosmet'],
+    };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (!input.trim() || isAnalyzing) return;
-    handleAnswer(input.trim());
+    const matched = clinics.filter((clinic) => {
+      const s = (clinic.sector || '').toLowerCase();
+      if (!s) return finalRec.sector === 'GENERAL';
+      if (s.toUpperCase() === finalRec.sector) return true;
+      return (sectorKeywords[finalRec.sector] || []).some((kw) => s.includes(kw));
+    });
+
+    setRecommendation(finalRec);
+    setNearbyClinics(matched.slice(0, 3));
+
+    setMessages((prev) => [
+      ...prev.filter((m) => !m.isLoading),
+      {
+        from: 'bot',
+        text: `Based on your symptoms, I recommend a **${finalRec.label}**. ${finalRec.reason}`,
+        isRecommendation: true,
+      },
+    ]);
+
+    if (onRecommend) onRecommend(finalRec.sector);
+    setIsAnalyzing(false);
   };
 
   const reset = () => {
-    setMessages([{ from: 'bot', text: questions[0].text }]);
-    setCurrentQ(0);
+    setMessages([{ from: 'bot', text: questionMap.start.text }]);
+    setCurrentQId('start');
     setAnswers({});
-    setInput('');
     setDone(false);
     setRecommendation(null);
     setIsAnalyzing(false);
+    setNearbyClinics([]);
     if (onRecommend) onRecommend(null);
+    if (onRouteRequest) onRouteRequest(null);
   };
+
+  const renderText = (text) =>
+    text.split(/\*\*(.*?)\*\*/g).map((part, index) => (index % 2 === 1 ? <strong key={index}>{part}</strong> : part));
+
+  const sectorColor = recommendation ? (sectorColors[recommendation.sector] || '#0d9488') : '#0d9488';
 
   return (
     <div style={{
       display: 'flex', flexDirection: 'column', height: '100%',
       background: 'white', borderRadius: 18,
-      border: '1px solid #e2e8f0',
-      overflow: 'hidden',
+      border: '1px solid #e2e8f0', overflow: 'hidden',
     }}>
-      {/* Header */}
       <div style={{
-        padding: '16px 20px',
-        borderBottom: '1px solid #f1f5f9',
+        padding: '14px 20px', borderBottom: '1px solid #f1f5f9',
         background: 'linear-gradient(135deg, #f0fdfa, #ecfdf5)',
+        flexShrink: 0,
       }}>
-        <div style={{ fontWeight: 700, fontSize: 15, color: '#0f172a' }}>
-           Symptom Guide
-        </div>
-        <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
-          Not sure which doctor? Answer a few questions.
-        </div>
+        <div style={{ fontWeight: 700, fontSize: 15, color: '#0f172a' }}>🩺 Symptom Guide</div>
+        <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>Answer a few questions — I&apos;ll find the right doctor for you.</div>
       </div>
 
-      {/* Messages */}
       <div style={{
-        flex: 1, overflowY: 'auto', padding: '16px 20px',
-        display: 'flex', flexDirection: 'column', gap: 12,
+        flex: 1, overflowY: 'auto', padding: '16px 16px 8px',
+        display: 'flex', flexDirection: 'column', gap: 10,
       }}>
-        {messages.map((m, i) => (
-          <div key={i} style={{
-            alignSelf: m.from === 'user' ? 'flex-end' : 'flex-start',
-            maxWidth: '85%',
-          }}>
+        {messages.map((message, index) => (
+          <div key={index} style={{ alignSelf: message.from === 'user' ? 'flex-end' : 'flex-start', maxWidth: '88%' }}>
             <div style={{
               padding: '10px 14px',
-              borderRadius: m.from === 'user' ? '14px 14px 4px 14px' : '14px 14px 14px 4px',
-              background: m.from === 'user'
+              borderRadius: message.from === 'user' ? '14px 14px 4px 14px' : '14px 14px 14px 4px',
+              background: message.from === 'user'
                 ? 'linear-gradient(135deg, #0d9488, #0f766e)'
-                : m.isRecommendation ? '#f0fdfa' : '#f8fafc',
-              color: m.from === 'user' ? 'white' : '#0f172a',
+                : message.isRecommendation ? '#f0fdfa' : '#f8fafc',
+              color: message.from === 'user' ? 'white' : '#0f172a',
               fontSize: 13.5, lineHeight: 1.6,
-              border: m.isRecommendation ? '1px solid #a7f3d0' : m.from === 'bot' ? '1px solid #f1f5f9' : 'none',
+              border: message.isRecommendation ? '1px solid #a7f3d0' : message.from === 'bot' ? '1px solid #f1f5f9' : 'none',
+              fontStyle: message.isLoading ? 'italic' : 'normal',
             }}>
-              {m.text}
+              {renderText(message.text)}
             </div>
           </div>
         ))}
 
-        {/* Recommendation card */}
         {recommendation && (
           <div style={{
-            background: 'linear-gradient(135deg, #f0fdfa, #d1fae5)',
-            border: '1px solid #a7f3d0',
-            borderRadius: 14, padding: '16px 18px',
-            marginTop: 4,
+            background: `linear-gradient(135deg, ${sectorColor}12, ${sectorColor}06)`,
+            border: `1.5px solid ${sectorColor}40`,
+            borderRadius: 14, padding: '14px 16px', marginTop: 4,
           }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: '#059669', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: sectorColor, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>
               Recommended Specialist
             </div>
-            <div style={{ fontSize: 18, fontWeight: 800, color: '#065f46', marginBottom: 4 }}>
-              {recommendation.label}
+            <div style={{ fontSize: 17, fontWeight: 800, color: '#0f172a', marginBottom: 4 }}>{recommendation.label}</div>
+            <div style={{ fontSize: 12, color: '#475569', marginBottom: 12 }}>
+              {nearbyClinics.length > 0
+                ? `Showing ${nearbyClinics.length} nearby ${recommendation.label.toLowerCase()} clinic${nearbyClinics.length > 1 ? 's' : ''} — map is also filtered.`
+                : `No registered ${recommendation.label.toLowerCase()} clinics found in the app yet.`}
             </div>
-            <div style={{ fontSize: 12.5, color: '#047857', lineHeight: 1.5 }}>
-              Map is now showing nearby {recommendation.label.toLowerCase()} clinics
-            </div>
+
+            {nearbyClinics.map((clinic) => (
+              <ClinicCard
+                key={clinic.clinic_id}
+                clinic={clinic}
+                onRoute={(c) => onRouteRequest && onRouteRequest(c)}
+                onBook={(c) => onClinicSelect && onClinicSelect(c)}
+              />
+            ))}
+
             <button
               onClick={reset}
               style={{
-                marginTop: 12, padding: '7px 14px',
-                background: 'white', border: '1px solid #a7f3d0',
+                marginTop: 4, padding: '7px 14px',
+                background: 'white', border: `1px solid ${sectorColor}60`,
                 borderRadius: 8, fontSize: 12, fontWeight: 600,
-                color: '#059669', cursor: 'pointer',
+                color: sectorColor, cursor: 'pointer',
               }}
             >
-               Start Over
+              🔄 Start Over
             </button>
           </div>
         )}
 
-        {/* Options buttons */}
-        {!done && !isAnalyzing && currentQ < questions.length && questions[currentQ].type === 'options' && (
+        {!done && !isAnalyzing && currentQ?.type === 'options' && (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 4 }}>
-            {questions[currentQ].options.map(opt => (
+            {currentQ.options.map((option) => (
               <button
-                key={opt}
-                onClick={() => {
-                  handleAnswer(opt);
-                }}
+                key={option}
+                onClick={() => handleAnswer(option)}
                 style={{
                   padding: '8px 14px', borderRadius: 20,
                   border: '1.5px solid #e2e8f0', background: 'white',
                   fontSize: 12.5, fontWeight: 600, color: '#334155',
                   cursor: 'pointer', transition: 'all 0.15s',
-                  fontFamily: "'Plus Jakarta Sans', sans-serif",
+                  fontFamily: 'inherit',
                 }}
-                onMouseEnter={e => {
-                  e.target.style.borderColor = '#0d9488';
-                  e.target.style.background = '#f0fdfa';
-                  e.target.style.color = '#0d9488';
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = '#0d9488';
+                  e.currentTarget.style.background = '#f0fdfa';
+                  e.currentTarget.style.color = '#0d9488';
                 }}
-                onMouseLeave={e => {
-                  e.target.style.borderColor = '#e2e8f0';
-                  e.target.style.background = 'white';
-                  e.target.style.color = '#334155';
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = '#e2e8f0';
+                  e.currentTarget.style.background = 'white';
+                  e.currentTarget.style.color = '#334155';
                 }}
               >
-                {opt}
+                {option}
               </button>
             ))}
           </div>
         )}
-      </div>
 
-      {/* Input */}
-      {!done && !isAnalyzing && currentQ < questions.length && questions[currentQ].type === 'text' && (
-        <form onSubmit={handleSubmit} style={{
-          padding: '12px 16px',
-          borderTop: '1px solid #f1f5f9',
-          display: 'flex', gap: 8,
-        }}>
-          <input
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            placeholder="Type your symptom..."
-            style={{
-              flex: 1, padding: '10px 14px',
-              border: '1.5px solid #e2e8f0', borderRadius: 10,
-              fontSize: 13.5, outline: 'none',
-              fontFamily: "'Plus Jakarta Sans', sans-serif",
-            }}
-          />
-          <button type="submit" style={{
-            padding: '10px 18px',
-            background: 'linear-gradient(135deg, #0d9488, #0f766e)',
-            color: 'white', border: 'none', borderRadius: 10,
-            fontWeight: 700, fontSize: 13, cursor: 'pointer',
-          }}>
-            Send
-          </button>
-        </form>
-      )}
+        <div ref={bottomRef} />
+      </div>
     </div>
   );
 };

@@ -23,6 +23,10 @@ export const registerPatient = (data) => api.post('/patients/register', data);
 // Doctor
 export const getDoctorProfile = () => api.get('/doctors/profile');
 export const getTodaySlots = (clinic_id) => api.get(`/doctors/slots/today?clinic_id=${clinic_id}`);
+export const generateSlots = (data) => api.post('/doctors/slots/generate', data);
+export const setDoctorStatus = (data) => api.post('/doctors/status', data);
+export const insertUrgentPatient = (data) => api.post('/doctors/urgent', data);
+export const getClinicStatus = (clinic_id) => api.get(`/doctors/clinic-status?clinic_id=${clinic_id}`);
 
 // Appointments
 export const getTodayAppointments = (clinic_id) => api.get(`/appointments/today?clinic_id=${clinic_id}`);

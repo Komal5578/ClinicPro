@@ -4,6 +4,8 @@ import ClinicMap from '../../components/patient/ClinicMap';
 import SymptomChatbot from '../../components/patient/SymptomChatbot';
 import MedicineCheck from '../../components/patient/MedicineCheck';
 import PrescriptionDrawer from '../../components/patient/PrescriptionDrawer';
+import { getPublicClinics, getNearbyClinics } from '../../services/api';
+
 
 const PatientPortal = () => {
   const navigate = useNavigate();
@@ -11,16 +13,44 @@ const PatientPortal = () => {
   const [sectorFilter, setSectorFilter] = useState('ALL');
   const [showMedicineCheck, setShowMedicineCheck] = useState(false);
   const [showPrescriptions, setShowPrescriptions] = useState(false);
+  const [routeTarget, setRouteTarget] = useState(null);
+  const [userLocation, setUserLocation] = useState(null);
+  const [locationStatus, setLocationStatus] = useState('Detecting your location...');
 
   useEffect(() => {
     fetchClinics();
+
+    if (!navigator.geolocation) {
+      setLocationStatus('Location access is not available, showing all clinics.');
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
+        setUserLocation({ lat, lng });
+        setLocationStatus('Showing clinics near your current location.');
+
+        try {
+          const res = await getNearbyClinics(lat, lng, 25);
+          setClinics(res.data || []);
+        } catch (err) {
+          console.error('Failed to fetch nearby clinics:', err);
+          await fetchClinics();
+        }
+      },
+      async () => {
+        setLocationStatus('Location permission was denied, showing all clinics.');
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+    );
   }, []);
 
   const fetchClinics = async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/clinics/public');
-      const data = await res.json();
-      setClinics(data);
+      const res = await getPublicClinics();
+      setClinics(res.data || []);
     } catch (err) {
       console.error('Failed to fetch clinics:', err);
     }
@@ -104,6 +134,19 @@ const PatientPortal = () => {
       }}>
         {/* LEFT: Map */}
         <div style={{ padding: '20px 20px 20px 28px', display: 'flex', flexDirection: 'column' }}>
+          <div style={{
+            marginBottom: 12,
+            padding: '10px 14px',
+            borderRadius: 10,
+            background: '#ecfdf5',
+            color: '#065f46',
+            border: '1px solid #a7f3d0',
+            fontSize: 12.5,
+            fontWeight: 600,
+          }}>
+            {locationStatus}
+          </div>
+
           {/* Sector filter pills */}
           <div style={{
             display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap',
@@ -141,7 +184,12 @@ const PatientPortal = () => {
             <ClinicMap
               clinics={clinics}
               sectorFilter={sectorFilter}
+              routeTarget={routeTarget}
+              userLocation={userLocation}
+              onClinicSelect={(clinic) => navigate(`/patient/clinic/${clinic.clinic_id}`)}
             />
+
+            
           </div>
         </div>
 
@@ -154,7 +202,12 @@ const PatientPortal = () => {
         }}>
           {/* Chatbot */}
           <div style={{ flex: 1, minHeight: 300 }}>
-            <SymptomChatbot onRecommend={handleChatbotRecommend} />
+            <SymptomChatbot
+              clinics={clinics}
+              onRecommend={handleChatbotRecommend}
+              onRouteRequest={(clinic) => setRouteTarget(clinic)}
+              onClinicSelect={(clinic) => navigate(`/patient/clinic/${clinic.clinic_id}`)}
+            />
           </div>
 
           {/* Medicine Check button */}

@@ -26,6 +26,7 @@ import InventoryManagement from '../pages/receptionist/InventoryManagement';
 
 // Patient page
 import PatientPortal from '../pages/patient/PatientPortal';
+import ClinicPage from '../pages/patient/ClinicPage';
 
 const ProtectedRoute = ({ children, allowedRoles }) => {
   const { user, loading } = useAuth();
@@ -45,6 +46,7 @@ const AppRoutes = () => {
       <Route path="/clinic" element={<ClinicAuth />} />
       <Route path="/clinic/register" element={<ClinicRegister />} />
       <Route path="/patient" element={<PatientPortal />} />
+      <Route path="/patient/clinic/:clinicId" element={<ClinicPage />} />
 
       {/* Legacy login redirect */}
       <Route path="/login" element={<Navigate to="/clinic" replace />} />

@@ -2,23 +2,19 @@ const db = require('../config/db');
 const bcrypt = require('bcryptjs');
 
 const registerDoctor = async (req, res) => {
+  const body = req.body || {};
   const {
     name, email, phone, password, sector, registrationType,
     registrationNumber, slotDuration, morningStart, morningEnd,
     eveningStart, eveningEnd, gst_number, clinic_name, address,
-  } = req.body;
+  } = body;
+  const normalizedGst = String(gst_number || '').toUpperCase().trim();
 
   try {
     // Check if doctor email already exists
     const [existing] = await db.query('SELECT doctor_id FROM Doctor WHERE email = ?', [email]);
     if (existing.length > 0) {
       return res.status(409).json({ message: 'A doctor with this email already exists' });
-    }
-
-    // Check if GST already registered
-    const [existingClinic] = await db.query('SELECT clinic_id FROM Clinic WHERE gst_number = ?', [gst_number]);
-    if (existingClinic.length > 0) {
-      return res.status(409).json({ message: 'A clinic with this GST number is already registered' });
     }
 
     const password_hash = await bcrypt.hash(password, 10);
@@ -31,16 +27,37 @@ const registerDoctor = async (req, res) => {
     );
     const doctor_id = doctorResult.insertId;
 
-    // Insert Clinic
-    const [clinicResult] = await db.query(
-      `INSERT INTO Clinic (doctor_id, clinic_name, address, gst_number, sector, morning_start, morning_end, evening_start, evening_end, booked_slot_duration)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [doctor_id, clinic_name, address, gst_number, sector, morningStart, morningEnd, eveningStart, eveningEnd, slotDuration || 20]
+    const [existingClinic] = await db.query(
+      'SELECT clinic_id, doctor_id FROM Clinic WHERE gst_number = ? LIMIT 1',
+      [normalizedGst]
     );
-    const clinic_id = clinicResult.insertId;
+
+    let clinic_id;
+
+    if (existingClinic.length > 0) {
+      clinic_id = existingClinic[0].clinic_id;
+
+      await db.query(
+        `UPDATE Clinic
+         SET doctor_id = ?, clinic_name = ?, address = ?, sector = ?, morning_start = ?, morning_end = ?, evening_start = ?, evening_end = ?, booked_slot_duration = ?
+         WHERE clinic_id = ?`,
+        [doctor_id, clinic_name, address, sector, morningStart, morningEnd, eveningStart, eveningEnd, slotDuration || 20, clinic_id]
+      );
+    } else {
+      // Insert Clinic
+      const [clinicResult] = await db.query(
+        `INSERT INTO Clinic (doctor_id, clinic_name, address, gst_number, sector, morning_start, morning_end, evening_start, evening_end, booked_slot_duration)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [doctor_id, clinic_name, address, normalizedGst, sector, morningStart, morningEnd, eveningStart, eveningEnd, slotDuration || 20]
+      );
+      clinic_id = clinicResult.insertId;
+    }
 
     // Insert DoctorClinic mapping
-    await db.query('INSERT INTO DoctorClinic (doctor_id, clinic_id) VALUES (?, ?)', [doctor_id, clinic_id]);
+    await db.query(
+      'INSERT IGNORE INTO DoctorClinic (doctor_id, clinic_id) VALUES (?, ?)',
+      [doctor_id, clinic_id]
+    );
 
     res.status(201).json({
       message: 'Doctor and clinic registered successfully',
@@ -54,11 +71,13 @@ const registerDoctor = async (req, res) => {
 };
 
 const registerReceptionist = async (req, res) => {
-  const { name, email, phone, password, gst_number } = req.body;
+  const body = req.body || {};
+  const { name, email, phone, password, gst_number } = body;
+  const normalizedGst = String(gst_number || '').toUpperCase().trim();
 
   try {
     // Find clinic by GST
-    const [clinics] = await db.query('SELECT clinic_id FROM Clinic WHERE gst_number = ?', [gst_number]);
+    const [clinics] = await db.query('SELECT clinic_id FROM Clinic WHERE gst_number = ?', [normalizedGst]);
     if (clinics.length === 0) {
       return res.status(404).json({ message: 'No clinic found with this GST number. Doctor must register first.' });
     }

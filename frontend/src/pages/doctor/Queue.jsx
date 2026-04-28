@@ -1,8 +1,173 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from '../../components/common/Sidebar';
-import { getTodayAppointments, getTodayWalkIns, updateWalkInStatus } from '../../services/api';
+import { getTodayAppointments, getTodayWalkIns, updateWalkInStatus, setDoctorStatus, insertUrgentPatient, generateSlots } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
+
+const DoctorControls = ({ clinicId }) => {
+  const [isDelayed, setIsDelayed] = useState(false);
+  const [delayMsg, setDelayMsg] = useState('');
+  const [bookedDur, setBookedDur] = useState(20);
+  const [bufferDur, setBufferDur] = useState(15);
+  const [ratio, setRatio] = useState(0.6);
+  const [showUrgentForm, setShowUrgentForm] = useState(false);
+
+  const handleDelayToggle = async () => {
+    const newStatus = isDelayed ? 'ON_TIME' : 'DELAYED';
+    await setDoctorStatus({
+      clinic_id: clinicId,
+      status: newStatus,
+      message: isDelayed ? null : (delayMsg || 'Doctor is running slightly late'),
+    });
+    setIsDelayed(!isDelayed);
+  };
+
+  const handleGenerateSlots = async () => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const dateStr = tomorrow.toISOString().split('T')[0];
+
+    await generateSlots({
+      clinic_id: clinicId,
+      date: dateStr,
+      booked_duration: bookedDur,
+      buffer_duration: bufferDur,
+      booked_ratio: ratio,
+    });
+
+    alert(`Slots generated for ${dateStr}`);
+  };
+
+  return (
+    <div style={{
+      background: '#f8f9fa', border: '1px solid #e2e8f0',
+      borderRadius: 12, padding: 20, marginBottom: 24, display: 'flex',
+      flexWrap: 'wrap', gap: 24, alignItems: 'flex-start'
+    }}>
+      <div>
+        <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 8 }}>Doctor Status</div>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <button
+            onClick={handleDelayToggle}
+            style={{
+              padding: '8px 18px', borderRadius: 8, fontWeight: 700, fontSize: 13,
+              border: 'none', cursor: 'pointer',
+              background: isDelayed ? '#FEE2E2' : '#DCFCE7',
+              color: isDelayed ? '#DC2626' : '#16A34A',
+            }}
+          >
+            {isDelayed ? 'Running Late' : 'On Time'}
+          </button>
+          {!isDelayed && (
+            <input
+              placeholder="Delay reason..."
+              value={delayMsg}
+              onChange={e => setDelayMsg(e.target.value)}
+              style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 13 }}
+            />
+          )}
+        </div>
+      </div>
+
+      <div>
+        <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 8 }}>Tomorrow's Slot Settings</div>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <label style={{ fontSize: 12, color: '#64748b' }}>
+            Booked (min)
+            <input type="number" value={bookedDur} min={5} max={60}
+              onChange={e => setBookedDur(Number(e.target.value))}
+              style={{ marginLeft: 6, width: 52, padding: '4px 8px', borderRadius: 6, border: '1px solid #e2e8f0' }}
+            />
+          </label>
+          <label style={{ fontSize: 12, color: '#64748b' }}>
+            Buffer (min)
+            <input type="number" value={bufferDur} min={0} max={30}
+              onChange={e => setBufferDur(Number(e.target.value))}
+              style={{ marginLeft: 6, width: 52, padding: '4px 8px', borderRadius: 6, border: '1px solid #e2e8f0' }}
+            />
+          </label>
+          <label style={{ fontSize: 12, color: '#64748b' }}>
+            Booked %
+            <input type="number" value={Math.round(ratio * 100)} min={0} max={100}
+              onChange={e => setRatio(Number(e.target.value) / 100)}
+              style={{ marginLeft: 6, width: 52, padding: '4px 8px', borderRadius: 6, border: '1px solid #e2e8f0' }}
+            />
+          </label>
+          <button onClick={handleGenerateSlots}
+            style={{
+              padding: '8px 16px', background: '#3B82F6', color: 'white',
+              border: 'none', borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: 'pointer'
+            }}>
+            Generate Slots
+          </button>
+        </div>
+      </div>
+
+      <div>
+        <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 8 }}>Emergency Insert</div>
+        {!showUrgentForm ? (
+          <button onClick={() => setShowUrgentForm(true)}
+            style={{
+              padding: '8px 18px', background: '#EF4444', color: 'white',
+              border: 'none', borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: 'pointer'
+            }}>
+            Urgent Patient
+          </button>
+        ) : (
+          <UrgentPatientForm clinicId={clinicId} onClose={() => setShowUrgentForm(false)} />
+        )}
+      </div>
+    </div>
+  );
+};
+
+const UrgentPatientForm = ({ clinicId, onClose }) => {
+  const [patientId, setPatientId] = useState('');
+  const [complaint, setComplaint] = useState('');
+  const [delay, setDelay] = useState(20);
+
+  const handleSubmit = async () => {
+    if (!patientId) {
+      alert('Enter patient ID');
+      return;
+    }
+
+    await insertUrgentPatient({
+      clinic_id: clinicId,
+      patient_id: patientId,
+      chief_complaint: complaint,
+      delay_minutes: delay,
+    });
+
+    alert(`Urgent patient inserted. All upcoming slots delayed by ${delay} mins.`);
+    onClose();
+  };
+
+  return (
+    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+      <input placeholder="Patient ID" value={patientId}
+        onChange={e => setPatientId(e.target.value)}
+        style={{ width: 100, padding: '6px 10px', borderRadius: 6, border: '1px solid #e2e8f0', fontSize: 13 }} />
+      <input placeholder="Chief complaint" value={complaint}
+        onChange={e => setComplaint(e.target.value)}
+        style={{ width: 160, padding: '6px 10px', borderRadius: 6, border: '1px solid #e2e8f0', fontSize: 13 }} />
+      <label style={{ fontSize: 12, color: '#64748b' }}>
+        Delay (min)
+        <input type="number" value={delay} min={5} max={60}
+          onChange={e => setDelay(Number(e.target.value))}
+          style={{ marginLeft: 6, width: 52, padding: '4px 8px', borderRadius: 6, border: '1px solid #e2e8f0' }} />
+      </label>
+      <button onClick={handleSubmit}
+        style={{ padding: '6px 14px', background: '#EF4444', color: 'white', border: 'none', borderRadius: 6, fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+        Confirm
+      </button>
+      <button onClick={onClose}
+        style={{ padding: '6px 14px', background: '#e2e8f0', border: 'none', borderRadius: 6, fontSize: 13, cursor: 'pointer' }}>
+        Cancel
+      </button>
+    </div>
+  );
+};
 
 const Queue = () => {
   const { user } = useAuth();
@@ -73,6 +238,8 @@ const Queue = () => {
             <span style={{ fontSize: 13 }}>↻</span> Refresh
           </button>
         </div>
+
+        <DoctorControls clinicId={clinic_id} />
 
         {/* Stats */}
         <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>

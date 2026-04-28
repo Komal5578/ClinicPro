@@ -1,235 +1,332 @@
-import { useState, useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
 
-const ClinicMap = ({ clinics, sectorFilter, onClinicSelect }) => {
-  const mapRef = useRef(null);
-  const [map, setMap] = useState(null);
-  const [markers, setMarkers] = useState([]);
-  const [infoWindow, setInfoWindow] = useState(null);
-  const [userLocation, setUserLocation] = useState(null);
-  const [mapError, setMapError] = useState('');
+const sectorColors = {
+  GENERAL: '#0d9488',
+  AYURVEDIC: '#d97706',
+  DENTAL: '#7c3aed',
+  SKIN: '#db2777',
+};
+
+const getColor = (sector) =>
+  sectorColors[(sector || 'GENERAL').toUpperCase()] || '#0d9488';
+
+const createClinicMarker = (color) =>
+  L.divIcon({
+    className: '',
+    html: `<div style="
+      width: 28px; height: 28px;
+      background: ${color};
+      border-radius: 50% 50% 50% 0;
+      transform: rotate(-45deg);
+      border: 3px solid white;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.35);
+    "></div>`,
+    iconSize: [28, 28],
+    iconAnchor: [14, 28],
+    popupAnchor: [0, -32],
+  });
+
+const userIcon = L.divIcon({
+  className: '',
+  html: `<div style="
+    width: 18px; height: 18px;
+    background: #ef4444;
+    border-radius: 50%;
+    border: 3px solid white;
+    box-shadow: 0 2px 10px rgba(239,68,68,0.5);
+  "></div>`,
+  iconSize: [18, 18],
+  iconAnchor: [9, 9],
+});
+
+const routeDestIcon = (color) =>
+  L.divIcon({
+    className: '',
+    html: `<div style="
+      width: 32px; height: 32px;
+      background: ${color};
+      border-radius: 50%;
+      border: 3px solid white;
+      box-shadow: 0 0 0 4px ${color}40;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px;
+    ">🏥</div>`,
+    iconSize: [32, 32],
+    iconAnchor: [16, 16],
+  });
+
+const getDistance = (lat1, lng1, lat2, lng2) => {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a = Math.sin(dLat / 2) ** 2
+    + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180)
+    * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+};
+
+const formatDuration = (seconds) => {
+  const mins = Math.round(seconds / 60);
+  if (mins < 60) return `${mins} min`;
+  return `${Math.floor(mins / 60)}h ${mins % 60}m`;
+};
+
+const formatDistance = (meters) => {
+  if (meters < 1000) return `${Math.round(meters)} m`;
+  return `${(meters / 1000).toFixed(1)} km`;
+};
+
+const ClinicMap = ({ clinics = [], sectorFilter, onClinicSelect, routeTarget, userLocation: externalUserLocation }) => {
+  const navigate = useNavigate();
+  const [userLocation, setUserLocation] = useState(externalUserLocation || { lat: 19.076, lng: 72.8777 });
   const [search, setSearch] = useState('');
+  const [routePoints, setRoutePoints] = useState(null);
+  const [routeInfo, setRouteInfo] = useState(null);
+  const [routeColor, setRouteColor] = useState('#0d9488');
+  const [isLoadingRoute, setIsLoadingRoute] = useState(false);
+  const mapContainerRef = useRef(null);
+  const mapInstanceRef = useRef(null);
+  const markersRef = useRef([]);
+  const routeLineRef = useRef(null);
+  const userMarkerRef = useRef(null);
 
-  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
-  const hasApiKey = Boolean(apiKey && apiKey.trim());
+  const getFilteredClinics = useMemo(() => {
+    const radiusKm = 25;
+    return clinics.filter((clinic) => {
+      if (!clinic.latitude || !clinic.longitude) return false;
 
-  // Filter clinics by sector
-  const filteredClinics = clinics.filter(c =>
-    !sectorFilter || sectorFilter === 'ALL' || (c.sector || '').toUpperCase() === sectorFilter
-  );
+      const matchesSector = !sectorFilter || sectorFilter === 'ALL'
+        || (clinic.sector || '').toUpperCase() === sectorFilter;
 
-  // Get user location
+      const matchesSearch = !search
+        || clinic.clinic_name?.toLowerCase().includes(search.toLowerCase())
+        || clinic.address?.toLowerCase().includes(search.toLowerCase());
+
+      const dist = getDistance(
+        userLocation.lat,
+        userLocation.lng,
+        parseFloat(clinic.latitude),
+        parseFloat(clinic.longitude),
+      );
+
+      return dist <= radiusKm && matchesSector && matchesSearch;
+    });
+  }, [clinics, sectorFilter, search, userLocation]);
+
   useEffect(() => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
-        (pos) => setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-        () => setUserLocation({ lat: 19.076, lng: 72.8777 }) // Default: Mumbai
+        (pos) => {
+          if (!externalUserLocation) {
+            setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+          }
+        },
+        () => {
+          if (!externalUserLocation) {
+            setUserLocation({ lat: 19.076, lng: 72.8777 });
+          }
+        },
       );
-    } else {
-      setUserLocation({ lat: 19.076, lng: 72.8777 });
     }
-  }, []);
+  }, [externalUserLocation]);
 
-  // Load Google Maps script
   useEffect(() => {
-    if (!hasApiKey || !userLocation) return;
-    if (window.google?.maps) {
-      initMap();
-      return;
+    if (externalUserLocation) {
+      setUserLocation(externalUserLocation);
     }
-    const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
-    script.async = true;
-    script.defer = true;
-    script.onload = initMap;
-    script.onerror = () => setMapError('Failed to load Google Maps');
-    document.head.appendChild(script);
-  }, [hasApiKey, userLocation]);
+  }, [externalUserLocation]);
 
-  const initMap = () => {
-    if (!mapRef.current || !window.google) return;
-    const m = new window.google.maps.Map(mapRef.current, {
-      center: userLocation,
-      zoom: 13,
-      styles: [
-        { featureType: 'poi', stylers: [{ visibility: 'off' }] },
-        { featureType: 'transit', stylers: [{ visibility: 'off' }] },
-      ],
-      mapTypeControl: false,
-      fullscreenControl: false,
-    });
-    setMap(m);
-    setInfoWindow(new window.google.maps.InfoWindow());
-  };
-
-  // Update markers when clinics or filter changes
   useEffect(() => {
-    if (!map || !window.google) return;
+    if (!mapContainerRef.current || mapInstanceRef.current) return;
 
-    // Clear old markers
-    markers.forEach(m => m.setMap(null));
+    const map = L.map(mapContainerRef.current, {
+      zoomControl: true,
+      scrollWheelZoom: true,
+    }).setView([userLocation.lat, userLocation.lng], 13);
 
-    const sectorColors = {
-      GENERAL: '#0d9488',
-      AYURVEDIC: '#d97706',
-      DENTAL: '#7c3aed',
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap contributors',
+    }).addTo(map);
+
+    mapInstanceRef.current = map;
+
+    userMarkerRef.current = L.marker([userLocation.lat, userLocation.lng], { icon: userIcon })
+      .addTo(map)
+      .bindPopup('📍 You are here');
+  }, [userLocation.lat, userLocation.lng]);
+
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+
+    map.setView([userLocation.lat, userLocation.lng], 13);
+
+    if (userMarkerRef.current) {
+      userMarkerRef.current.setLatLng([userLocation.lat, userLocation.lng]);
+    }
+  }, [userLocation.lat, userLocation.lng]);
+
+  const drawRoute = async (clinic) => {
+    if (!clinic?.latitude || !clinic?.longitude) return;
+
+    setIsLoadingRoute(true);
+    setRoutePoints(null);
+    setRouteInfo(null);
+
+    const dest = {
+      lat: parseFloat(clinic.latitude),
+      lng: parseFloat(clinic.longitude),
     };
 
-    const newMarkers = filteredClinics
-      .filter(c => c.latitude && c.longitude)
-      .map(clinic => {
-        const color = sectorColors[(clinic.sector || 'GENERAL').toUpperCase()] || '#0d9488';
-        const marker = new window.google.maps.Marker({
-          position: { lat: parseFloat(clinic.latitude), lng: parseFloat(clinic.longitude) },
-          map,
-          title: clinic.clinic_name,
-          icon: {
-            path: window.google.maps.SymbolPath.CIRCLE,
-            scale: 10,
-            fillColor: color,
-            fillOpacity: 1,
-            strokeColor: 'white',
-            strokeWeight: 2,
-          },
-        });
+    try {
+      const url = `https://router.project-osrm.org/route/v1/driving/${userLocation.lng},${userLocation.lat};${dest.lng},${dest.lat}?overview=full&geometries=geojson`;
+      const res = await fetch(url);
+      const data = await res.json();
 
-        marker.addListener('click', () => {
-          infoWindow.setContent(`
-            <div style="font-family: 'Plus Jakarta Sans', sans-serif; padding: 4px; min-width: 200px;">
-              <div style="font-weight: 700; font-size: 14px; margin-bottom: 4px;">${clinic.clinic_name}</div>
-              <div style="font-size: 12px; color: #64748b; margin-bottom: 6px;">${clinic.doctor_name || 'Doctor'}</div>
-              <span style="display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 10px; font-weight: 700; background: ${color}20; color: ${color};">
-                ${(clinic.sector || 'General').toUpperCase()}
-              </span>
-              <div style="font-size: 11px; color: #94a3b8; margin-top: 6px;">
-                 ${clinic.morning_start?.slice(0, 5) || '09:00'} - ${clinic.morning_end?.slice(0, 5) || '13:00'} / ${clinic.evening_start?.slice(0, 5) || '17:00'} - ${clinic.evening_end?.slice(0, 5) || '21:00'}
-              </div>
-            </div>
-          `);
-          infoWindow.open(map, marker);
+      if (data.routes?.[0]) {
+        const coords = data.routes[0].geometry.coordinates.map(([lng, lat]) => [lat, lng]);
+        const { duration, distance } = data.routes[0];
+        setRoutePoints(coords);
+        setRouteInfo({
+          duration: formatDuration(duration),
+          distance: formatDistance(distance),
+          clinicName: clinic.clinic_name,
         });
+        setRouteColor(getColor(clinic.sector));
+        return;
+      }
+    } catch (_) {
+      // fall through to straight line
+    }
 
-        return marker;
+    setRoutePoints([[userLocation.lat, userLocation.lng], [dest.lat, dest.lng]]);
+    setRouteInfo({ duration: '–', distance: '–', clinicName: clinic.clinic_name });
+    setRouteColor(getColor(clinic.sector));
+    setIsLoadingRoute(false);
+  };
+
+  useEffect(() => {
+    if (routeTarget?.latitude && routeTarget?.longitude) {
+      drawRoute(routeTarget);
+    }
+  }, [routeTarget, userLocation]);
+
+  const clearRoute = () => {
+    setRoutePoints(null);
+    setRouteInfo(null);
+  };
+
+  const filteredCount = getFilteredClinics.length;
+
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+
+    markersRef.current.forEach((marker) => marker.remove());
+    markersRef.current = [];
+
+    if (routeLineRef.current) {
+      routeLineRef.current.remove();
+      routeLineRef.current = null;
+    }
+
+    const bounds = [];
+
+    getFilteredClinics.forEach((clinic) => {
+      const lat = parseFloat(clinic.latitude);
+      const lng = parseFloat(clinic.longitude);
+      if (Number.isNaN(lat) || Number.isNaN(lng)) return;
+
+      const color = getColor(clinic.sector);
+      const isRouteTarget = routeInfo?.clinicName === clinic.clinic_name;
+      const marker = L.marker([lat, lng], { icon: isRouteTarget ? routeDestIcon(color) : createClinicMarker(color) }).addTo(map);
+      bounds.push([lat, lng]);
+
+      const popupId = `clinic-${clinic.clinic_id}`;
+      const popupHtml = `
+        <div style="font-family: sans-serif; min-width: 210px;">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+            <div style="width:8px;height:8px;border-radius:50%;background:${color};"></div>
+            <span style="font-size:11px;font-weight:700;color:${color};text-transform:uppercase;">${(clinic.sector || 'General')}</span>
+          </div>
+          <div style="font-weight:700;font-size:14px;margin-bottom:2px;">${clinic.clinic_name}</div>
+          <div style="font-size:12px;color:#555;margin-bottom:2px;">Dr. ${clinic.doctor_name || 'Doctor'}</div>
+          ${clinic.specialization ? `<div style="font-size:11px;color:#888;margin-bottom:6px;">${clinic.specialization}</div>` : ''}
+          ${clinic.address ? `<div style="font-size:11px;color:#64748b;margin-bottom:6px;">📍 ${clinic.address}</div>` : ''}
+          <div style="font-size:11px;color:#444;padding:6px 8px;background:#f8fafc;border-radius:6px;margin-bottom:8px;line-height:1.8;">
+            🌅 ${clinic.morning_start?.slice(0, 5) || '09:00'} – ${clinic.morning_end?.slice(0, 5) || '13:00'}<br />
+            🌆 ${clinic.evening_start?.slice(0, 5) || '17:00'} – ${clinic.evening_end?.slice(0, 5) || '21:00'}
+          </div>
+          <div style="display:flex;gap:6px;">
+            <button id="route-${popupId}" style="flex:1;padding:7px 0;background:white;border:1.5px solid ${color};border-radius:6px;font-size:12px;font-weight:600;color:${color};cursor:pointer;">🗺️ Route</button>
+            <button id="book-${popupId}" style="flex:1;padding:7px 0;background:${color};border:none;border-radius:6px;font-size:12px;font-weight:700;color:white;cursor:pointer;">Book →</button>
+          </div>
+        </div>
+      `;
+
+      marker.bindPopup(popupHtml);
+
+      marker.on('popupopen', () => {
+        const popup = document.getElementById(`route-${popupId}`);
+        const book = document.getElementById(`book-${popupId}`);
+        if (popup) popup.onclick = () => drawRoute(clinic);
+        if (book) book.onclick = () => (onClinicSelect ? onClinicSelect(clinic) : navigate(`/patient/clinic/${clinic.clinic_id}`));
       });
 
-    setMarkers(newMarkers);
+      marker.on('click', () => {
+        if (onClinicSelect) onClinicSelect(clinic);
+      });
 
-    // Fit bounds if multiple clinics
-    if (newMarkers.length > 1) {
-      const bounds = new window.google.maps.LatLngBounds();
-      newMarkers.forEach(m => bounds.extend(m.getPosition()));
-      map.fitBounds(bounds);
+      marker.on('popupclose', () => {
+        const popup = document.getElementById(`route-${popupId}`);
+        const book = document.getElementById(`book-${popupId}`);
+        if (popup) popup.onclick = null;
+        if (book) book.onclick = null;
+      });
+
+      markersRef.current.push(marker);
+    });
+
+    if (bounds.length > 0) {
+      const boundsObject = L.latLngBounds(bounds);
+      map.fitBounds(boundsObject, { padding: [60, 60] });
+      if (map.getZoom() > 13) map.setZoom(13);
     }
-  }, [map, filteredClinics, sectorFilter]);
 
-  // Fallback: no API key — show clinic list
-  if (!hasApiKey) {
-    return (
-      <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-        {/* Search bar */}
-        <div style={{
-          display: 'flex', gap: 8, padding: '0 0 14px',
-        }}>
-          <input
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder=" Search clinics by name or area..."
-            style={{
-              flex: 1, padding: '10px 14px',
-              border: '1.5px solid #e2e8f0', borderRadius: 10,
-              fontSize: 13.5, outline: 'none',
-              fontFamily: "'Plus Jakarta Sans', sans-serif",
-            }}
-          />
-        </div>
+    if (routePoints?.length >= 2) {
+      routeLineRef.current = L.polyline(routePoints, { color: routeColor, weight: 4, opacity: 0.85, dashArray: '8, 4' }).addTo(map);
+      L.polyline(routePoints, { color: '#000', weight: 6, opacity: 0.1 }).addTo(map);
+      map.fitBounds(L.latLngBounds(routePoints), { padding: [60, 60] });
+    }
+  }, [getFilteredClinics, routePoints, routeColor, routeInfo, drawRoute, navigate, onClinicSelect]);
 
-        {/* Map placeholder */}
-        <div style={{
-          background: 'linear-gradient(135deg, #f0fdfa, #e0f2fe)',
-          borderRadius: 14, padding: 32, textAlign: 'center',
-          border: '1px solid #e2e8f0', marginBottom: 16,
-        }}>
-          <div style={{ fontSize: 36, marginBottom: 8 }}></div>
-          <div style={{ fontWeight: 700, fontSize: 14, color: '#334155', marginBottom: 4 }}>
-            Map View Requires API Key
-          </div>
-          <div style={{ fontSize: 12, color: '#64748b', lineHeight: 1.6 }}>
-            Add <code style={{ background: '#f1f5f9', padding: '1px 6px', borderRadius: 4, fontSize: 11 }}>
-              VITE_GOOGLE_MAPS_API_KEY
-            </code> to your <code style={{ background: '#f1f5f9', padding: '1px 6px', borderRadius: 4, fontSize: 11 }}>
-              frontend/.env
-            </code> file
-          </div>
-        </div>
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
 
-        {/* Clinic list fallback */}
-        <div style={{ flex: 1, overflowY: 'auto' }}>
-          {filteredClinics
-            .filter(c => !search || c.clinic_name?.toLowerCase().includes(search.toLowerCase()) || c.address?.toLowerCase().includes(search.toLowerCase()))
-            .map(clinic => {
-              const sectorColors = { GENERAL: '#0d9488', AYURVEDIC: '#d97706', DENTAL: '#7c3aed' };
-              const color = sectorColors[(clinic.sector || 'GENERAL').toUpperCase()] || '#0d9488';
-              return (
-                <div key={clinic.clinic_id} style={{
-                  display: 'flex', alignItems: 'center', gap: 12,
-                  padding: '14px 16px', borderRadius: 12,
-                  border: '1px solid #f1f5f9', marginBottom: 8,
-                  background: 'white', cursor: 'pointer',
-                  transition: 'all 0.15s',
-                }}
-                  onMouseEnter={e => {
-                    e.currentTarget.style.borderColor = color;
-                    e.currentTarget.style.boxShadow = `0 2px 12px ${color}15`;
-                  }}
-                  onMouseLeave={e => {
-                    e.currentTarget.style.borderColor = '#f1f5f9';
-                    e.currentTarget.style.boxShadow = 'none';
-                  }}
-                >
-                  <div style={{
-                    width: 42, height: 42, borderRadius: 12,
-                    background: `${color}15`, color: color,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontWeight: 800, fontSize: 16, flexShrink: 0,
-                  }}>
-                    {clinic.sector === 'DENTAL' ? '' : clinic.sector === 'AYURVEDIC' ? '' : '🩺'}
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 700, fontSize: 13.5, color: '#0f172a' }}>{clinic.clinic_name}</div>
-                    <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
-                      {clinic.doctor_name || 'Doctor'} · {(clinic.sector || 'General')}
-                    </div>
-                    <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>
-                       {clinic.morning_start?.slice(0, 5) || '09:00'}-{clinic.morning_end?.slice(0, 5) || '13:00'} / {clinic.evening_start?.slice(0, 5) || '17:00'}-{clinic.evening_end?.slice(0, 5) || '21:00'}
-                    </div>
-                  </div>
-                  <span style={{
-                    padding: '3px 8px', borderRadius: 6,
-                    background: `${color}12`, color: color,
-                    fontSize: 10, fontWeight: 700,
-                  }}>
-                    {(clinic.sector || 'GENERAL').toUpperCase()}
-                  </span>
-                </div>
-              );
-            })}
-          {filteredClinics.length === 0 && (
-            <div style={{ textAlign: 'center', padding: 32, color: '#94a3b8', fontSize: 13 }}>
-              No clinics found for this sector
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  }
+    if (routeLineRef.current) {
+      routeLineRef.current.remove();
+      routeLineRef.current = null;
+    }
 
-  // Google Maps view
+    if (routePoints?.length >= 2) {
+      routeLineRef.current = L.polyline(routePoints, { color: routeColor, weight: 4, opacity: 0.85, dashArray: '8, 4' }).addTo(map);
+      L.polyline(routePoints, { color: '#000', weight: 6, opacity: 0.1 }).addTo(map);
+      map.fitBounds(L.latLngBounds(routePoints), { padding: [60, 60] });
+    }
+  }, [routePoints, routeColor]);
+
   return (
-    <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <div style={{ display: 'flex', gap: 8, padding: '0 0 14px' }}>
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
         <input
           value={search}
-          onChange={e => setSearch(e.target.value)}
-          placeholder=" Search by area or pincode..."
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search clinics by name or area..."
           style={{
             flex: 1, padding: '10px 14px',
             border: '1.5px solid #e2e8f0', borderRadius: 10,
@@ -237,16 +334,94 @@ const ClinicMap = ({ clinics, sectorFilter, onClinicSelect }) => {
             fontFamily: "'Plus Jakarta Sans', sans-serif",
           }}
         />
+        <div style={{ display: 'flex', gap: 10, flexShrink: 0 }}>
+          {Object.entries(sectorColors).map(([sector, color]) => (
+            <div key={sector} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <div style={{
+                width: 10, height: 10, borderRadius: '50%',
+                background: color, border: '2px solid white',
+                boxShadow: '0 1px 4px rgba(0,0,0,0.2)',
+              }} />
+              <span style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>
+                {sector.charAt(0) + sector.slice(1).toLowerCase()}
+              </span>
+            </div>
+          ))}
+        </div>
       </div>
-      {mapError && (
-        <div style={{ background: '#fee2e2', color: '#991b1b', padding: '8px 12px', borderRadius: 8, fontSize: 12, marginBottom: 10 }}>
-          {mapError}
+
+      {sectorFilter && sectorFilter !== 'ALL' && (
+        <div style={{
+          padding: '8px 14px',
+          background: `${getColor(sectorFilter)}18`,
+          border: `1px solid ${getColor(sectorFilter)}40`,
+          borderRadius: 8, fontSize: 12.5, fontWeight: 600,
+          color: getColor(sectorFilter),
+        }}>
+          Showing {filteredCount} {sectorFilter.toLowerCase()} clinic{filteredCount !== 1 ? 's' : ''} near you
         </div>
       )}
+
+      {routeInfo && (
+        <div style={{
+          padding: '10px 14px',
+          background: `${routeColor}12`,
+          border: `1.5px solid ${routeColor}50`,
+          borderRadius: 10, fontSize: 13,
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        }}>
+          <div>
+            <span style={{ fontWeight: 700, color: routeColor }}>🗺️ Route to {routeInfo.clinicName}</span>
+            <span style={{ color: '#475569', marginLeft: 10, fontSize: 12 }}>
+              {routeInfo.distance} · ~{routeInfo.duration} by car
+            </span>
+          </div>
+          <button
+            onClick={clearRoute}
+            style={{
+              padding: '4px 10px', fontSize: 11, fontWeight: 700,
+              background: 'white', border: `1px solid ${routeColor}60`,
+              borderRadius: 6, color: routeColor, cursor: 'pointer',
+            }}
+          >
+            ✕ Clear
+          </button>
+        </div>
+      )}
+
+      {isLoadingRoute && (
+        <div style={{
+          padding: '8px 14px', background: '#f8fafc',
+          border: '1px solid #e2e8f0', borderRadius: 8,
+          fontSize: 12.5, color: '#64748b',
+        }}>
+          ⏳ Calculating route...
+        </div>
+      )}
+
       <div
-        ref={mapRef}
-        style={{ flex: 1, borderRadius: 14, overflow: 'hidden', minHeight: 400, border: '1px solid #e2e8f0' }}
+        ref={mapContainerRef}
+        style={{
+          flex: 1,
+          borderRadius: 14,
+          overflow: 'hidden',
+          minHeight: 400,
+          border: '1px solid #e2e8f0',
+        }}
       />
+
+      <div style={{ display: 'flex', gap: 16, paddingTop: 10, justifyContent: 'center' }}>
+        {[
+          { label: 'General', color: '#0d9488' },
+          { label: 'Ayurvedic', color: '#d97706' },
+          { label: 'Dental', color: '#7c3aed' },
+        ].map((item) => (
+          <div key={item.label} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#64748b' }}>
+            <div style={{ width: 10, height: 10, borderRadius: '50%', background: item.color }} />
+            {item.label}
+          </div>
+        ))}
+      </div>
     </div>
   );
 };
