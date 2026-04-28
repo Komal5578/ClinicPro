@@ -1,9 +1,8 @@
 import { useState } from 'react';
-import { searchPatientPublic, getPatientHistoryPublic } from '../../services/api';
+import { sendPatientOtp, verifyPatientOtp, getPatientPrescriptions } from '../../services/api';
 
 const PrescriptionDrawer = ({ onClose }) => {
   const [phone, setPhone] = useState('');
-  const [otp] = useState('1234');
   const [enteredOtp, setEnteredOtp] = useState('');
   const [step, setStep] = useState('phone');
   const [patient, setPatient] = useState(null);
@@ -17,11 +16,10 @@ const PrescriptionDrawer = ({ onClose }) => {
     setError('');
     setLoading(true);
     try {
-      const res = await searchPatientPublic(phone);
-      setPatient(res.data);
+      await sendPatientOtp(phone);
       setStep('otp');
-    } catch {
-      setError('Phone number not found. Please visit a clinic to register.');
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to send OTP');
     } finally {
       setLoading(false);
     }
@@ -29,17 +27,18 @@ const PrescriptionDrawer = ({ onClose }) => {
 
   const handleOtpSubmit = async (e) => {
     e.preventDefault();
-    if (enteredOtp !== otp) {
-      setError('Invalid OTP. For demo, use: 1234');
-      return;
-    }
+    setError('');
     setLoading(true);
     try {
-      const res = await getPatientHistoryPublic(patient.patient_id);
-      setHistory(res.data);
+      const verifyRes = await verifyPatientOtp(phone, enteredOtp);
+      const token = verifyRes.data.token;
+
+      const prescriptionsRes = await getPatientPrescriptions(token);
+      setHistory(prescriptionsRes.data);
+      setPatient(prescriptionsRes.data.patient || verifyRes.data.patient);
       setStep('dashboard');
-    } catch {
-      setError('Failed to load records');
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to verify OTP');
     } finally {
       setLoading(false);
     }
@@ -120,7 +119,7 @@ const PrescriptionDrawer = ({ onClose }) => {
           <form onSubmit={handleOtpSubmit}>
             <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 6 }}>Verify OTP</h3>
             <p style={{ color: '#64748b', fontSize: 13, marginBottom: 20 }}>
-              OTP sent to {phone} · <strong style={{ color: '#0d9488' }}>Demo OTP: 1234</strong>
+              OTP sent to {phone}
             </p>
             <input
               style={{
@@ -130,9 +129,9 @@ const PrescriptionDrawer = ({ onClose }) => {
                 letterSpacing: 8, outline: 'none', marginBottom: 14,
                 boxSizing: 'border-box',
               }}
-              placeholder="0000" value={enteredOtp}
-              onChange={e => setEnteredOtp(e.target.value.slice(0, 4))}
-              maxLength={4} required
+              placeholder="000000" value={enteredOtp}
+              onChange={e => setEnteredOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              maxLength={6} required
             />
             <button type="submit" disabled={loading} style={{
               width: '100%', padding: 12,

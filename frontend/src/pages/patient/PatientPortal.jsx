@@ -16,21 +16,23 @@ const PatientPortal = () => {
     fetchClinics();
   }, []);
 
-  const fetchClinics = async () => {
-    try {
-      const res = await fetch('http://localhost:5000/api/clinics/public');
-      const data = await res.json();
-      setClinics(data);
-    } catch (err) {
-      console.error('Failed to fetch clinics:', err);
-    }
-  };
-
-  const handleChatbotRecommend = (sector) => {
-    if (sector) {
-      setSectorFilter(sector);
-    }
-  };
+ const fetchClinics = async () => {
+  try {
+    const res = await fetch('http://localhost:5000/api/clinics/public');
+    const data = await res.json();
+    setClinics(Array.isArray(data) ? data : []);
+  } catch (err) {
+    console.error('Failed to fetch clinics:', err);
+    setClinics([]);
+  }
+};
+const handleChatbotRecommend = (sector) => {
+  if (sector) {
+    setSectorFilter(sector);
+  } else {
+    setSectorFilter('ALL');
+  }
+};
 
   const filters = [
     { id: 'ALL', label: 'All', icon: '' },
@@ -132,7 +134,7 @@ const PatientPortal = () => {
               );
             })}
             <span style={{ fontSize: 12, color: '#94a3b8', alignSelf: 'center', marginLeft: 4 }}>
-              {clinics.filter(c => sectorFilter === 'ALL' || (c.sector || '').toUpperCase() === sectorFilter).length} clinics
+              {(Array.isArray(clinics) ? clinics : []).filter(c => sectorFilter === 'ALL' || (c.sector || '').toUpperCase() === sectorFilter).length} clinics
             </span>
           </div>
 
@@ -154,7 +156,7 @@ const PatientPortal = () => {
         }}>
           {/* Chatbot */}
           <div style={{ flex: 1, minHeight: 300 }}>
-            <SymptomChatbot onRecommend={handleChatbotRecommend} />
+            <SymptomChatbot  clinics={clinics} onRecommend={handleChatbotRecommend} />
           </div>
 
           {/* Medicine Check button */}

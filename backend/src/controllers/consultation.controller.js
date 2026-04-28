@@ -3,6 +3,9 @@ const db = require('../config/db');
 // Open patient - get full history
 const getPatientHistory = async (req, res) => {
   const { patient_id } = req.params;
+  if (req.user?.role === 'patient' && Number(req.user.patient_id) !== Number(patient_id)) {
+    return res.status(403).json({ message: 'Access denied' });
+  }
   try {
     // Last 3 consultations
     const [consultations] = await db.query(

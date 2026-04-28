@@ -1,5 +1,51 @@
 const db = require('../config/db');
 
+const getMyPrescriptions = async (req, res) => {
+  const patientId = req.user?.patient_id;
+
+  if (!patientId) {
+    return res.status(401).json({ message: 'Unauthorized patient access' });
+  }
+
+  try {
+    const [[patient]] = await db.query(
+      'SELECT patient_id, name, age, phone FROM Patient WHERE patient_id = ? LIMIT 1',
+      [patientId]
+    );
+
+    if (!patient) {
+      return res.status(404).json({ message: 'Patient not found' });
+    }
+
+    const [consultations] = await db.query(
+      `SELECT consultation_id, chief_complaint, diagnosis_note, consultation_date, followup_date
+       FROM Consultation
+       WHERE patient_id = ?
+       ORDER BY consultation_date DESC
+       LIMIT 20`,
+      [patientId]
+    );
+
+    const [prescriptions] = await db.query(
+      `SELECT pi.*, pr.generated_at, pr.pdf_path
+       FROM PrescriptionItem pi
+       JOIN Prescription pr ON pi.prescription_id = pr.prescription_id
+       WHERE pr.patient_id = ?
+       ORDER BY pr.generated_at DESC`,
+      [patientId]
+    );
+
+    const [conditions] = await db.query(
+      'SELECT * FROM PatientConditions WHERE patient_id = ?',
+      [patientId]
+    );
+
+    return res.json({ patient, consultations, prescriptions, conditions });
+  } catch (err) {
+    return res.status(500).json({ message: 'Server error', error: err.message });
+  }
+};
+
 const generatePrescription = async (req, res) => {
   const { consultation_id, patient_id, doctor_id, items } = req.body;
   try {
@@ -49,4 +95,4 @@ const getPrescription = async (req, res) => {
   }
 };
 
-module.exports = { generatePrescription, getPrescription };
+module.exports = { generatePrescription, getPrescription, getMyPrescriptions };

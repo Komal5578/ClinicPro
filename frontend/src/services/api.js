@@ -8,12 +8,16 @@ const api = axios.create({
 // Attach token to every request automatically
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
-  if (token) config.headers.Authorization = `Bearer ${token}`;
+  if (token && !config.headers?.Authorization) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
   return config;
 });
 
 // Auth
 export const login = (data) => api.post('/auth/login', data);
+export const sendPatientOtp = (phone) => api.post('/auth/send-otp', { phone });
+export const verifyPatientOtp = (phone, otp) => api.post('/auth/verify-otp', { phone, otp });
 
 // Patients
 export const searchPatient = (phone) => api.get(`/patients/search?phone=${phone}`);
@@ -41,6 +45,9 @@ export const saveConsultation = (data) => api.post('/consultations/save', data);
 // Prescription
 export const generatePrescription = (data) => api.post('/prescriptions/generate', data);
 export const getPrescription = (id) => api.get(`/prescriptions/${id}`);
+export const getPatientPrescriptions = (token) => api.get('/prescriptions', {
+  headers: { Authorization: `Bearer ${token}` },
+});
 
 // Inventory
 export const getInventory = () => api.get('/inventory');
