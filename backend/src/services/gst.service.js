@@ -1,20 +1,14 @@
 const https = require('https');
 const { GST_API_KEY, GST_API_HOST } = require('../config/env');
 
-const postJson = ({ hostname, path, headers, body }) => new Promise((resolve, reject) => {
-	const payload = JSON.stringify(body);
-
+const getJson = ({ hostname, path, headers }) => new Promise((resolve, reject) => {
 	const req = https.request(
 		{
 			hostname,
 			port: 443,
 			path,
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json',
-				'Content-Length': Buffer.byteLength(payload),
-				...headers,
-			},
+			method: 'GET',
+			headers,
 		},
 		(res) => {
 			let responseBody = '';
@@ -43,40 +37,39 @@ const postJson = ({ hostname, path, headers, body }) => new Promise((resolve, re
 	);
 
 	req.on('error', reject);
-	req.write(payload);
 	req.end();
 });
 
 const pick = (...values) => values.find((value) => value !== undefined && value !== null && value !== '');
+
+const isVerifiedStatus = (status) => /active|valid|registered|found/i.test(String(status || ''));
 
 const verifyGstReal = async (gstin) => {
 	if (!GST_API_KEY || !GST_API_HOST) {
 		throw new Error('GST API configuration missing. Add GST_API_KEY and GST_API_HOST in backend .env');
 	}
 
-	const raw = await postJson({
+	const raw = await getJson({
 		hostname: GST_API_HOST,
-		path: '/',
+		path: `/check/${GST_API_KEY}/${encodeURIComponent(gstin)}`,
 		headers: {
-			'x-rapidapi-key': GST_API_KEY,
-			'x-rapidapi-host': GST_API_HOST,
+			'User-Agent': 'ClinicPro/1.0',
 		},
-		body: { gstin },
 	});
 
-	const payload = raw?.data || raw?.result || raw;
+	const verified = raw?.flag === true;
+	if (!verified) {
+		throw new Error(`GST validation failed: ${raw?.message || 'Unknown error'}`);
+	}
 
-	const businessName = pick(payload?.business_name, payload?.tradeName, payload?.lgnm, payload?.bnm);
-	const address = pick(payload?.address, payload?.adr, payload?.pradr?.addr?.bnm, payload?.pradr?.adr);
-	const state = pick(payload?.state, payload?.pradr?.addr?.stcd, payload?.stcd);
-	const status = pick(payload?.status, payload?.gst_status, payload?.sts, raw?.message);
+	const data = raw?.data || {};
 
 	return {
 		gst_number: gstin,
-		business_name: businessName || 'Unknown Business',
-		address: address || 'Address not available',
-		state: state || 'Unknown',
-		status: status || 'Unknown',
+		business_name: data?.lgnm || data?.bnm || data?.tradeName || '',
+		address: data?.pradr?.adr || data?.pradr?.addr || data?.address || '',
+		state: data?.stcd || 'Unknown',
+		status: raw?.sts || 'Active',
 		verified: true,
 		raw,
 	};

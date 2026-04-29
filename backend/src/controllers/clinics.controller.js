@@ -44,4 +44,29 @@ const getNearbyClinics = async (req, res) => {
   }
 };
 
+<<<<<<< Updated upstream
 module.exports = { getPublicClinics, getNearbyClinics };
+=======
+module.exports = { getPublicClinics, getNearbyClinics };
+
+const getRecentClinics = async (req, res) => {
+  const limit = parseInt(req.query.limit, 10) || 20;
+  try {
+    const [rows] = await db.query(`
+      SELECT c.clinic_id, c.clinic_name, c.address, c.sector, c.latitude, c.longitude,
+             c.morning_start, c.morning_end, c.evening_start, c.evening_end,
+             c.booked_slot_duration, c.gst_number, d.name as doctor_name
+      FROM Clinic c
+      LEFT JOIN DoctorClinic dc ON c.clinic_id = dc.clinic_id
+      LEFT JOIN Doctor d ON dc.doctor_id = d.doctor_id
+      ORDER BY c.clinic_id DESC
+      LIMIT ?
+    `, [limit]);
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+};
+
+module.exports = { getPublicClinics, getNearbyClinics, getRecentClinics };
+>>>>>>> Stashed changes

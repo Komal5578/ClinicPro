@@ -17,6 +17,11 @@ const gstVerify = async (req, res) => {
   if (GST_MODE === 'real') {
     try {
       const result = await verifyGstReal(normalizedGst);
+      if (!result?.verified) {
+        return res.status(422).json({
+          message: 'GST number is not verified',
+        });
+      }
       return res.json(result);
     } catch (err) {
       return res.status(502).json({

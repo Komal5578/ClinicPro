@@ -8,6 +8,8 @@ const ClinicRegister = () => {
   const [gstVerified, setGstVerified] = useState(null);
   const [gstLoading, setGstLoading] = useState(false);
   const [gstError, setGstError] = useState('');
+  const [clinicName, setClinicName] = useState('');
+  const [clinicAddress, setClinicAddress] = useState('');
   const [role, setRole] = useState(''); // doctor | receptionist
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -47,8 +49,10 @@ const ClinicRegister = () => {
       const data = await res.json();
       if (res.ok) {
         setGstVerified(data);
+        setClinicName(data.business_name || clinicName);
+        setClinicAddress(data.address || clinicAddress);
       } else {
-        setGstError(data.message || 'Verification failed');
+        setGstError(data.error || data.message || 'Verification failed');
       }
     } catch {
       setGstError('Server error. Please try again.');
@@ -87,8 +91,8 @@ const ClinicRegister = () => {
         body: JSON.stringify({
           ...doctorForm,
           gst_number: gst.toUpperCase(),
-          clinic_name: gstVerified?.business_name || '',
-          address: gstVerified?.address || '',
+          clinic_name: clinicName.trim(),
+          address: clinicAddress.trim(),
           certificate: undefined,
           confirmPassword: undefined,
         }),
@@ -259,15 +263,20 @@ const ClinicRegister = () => {
 
                 <div style={{ marginBottom: 16 }}>
                   <label style={labelStyle}>Business Name</label>
-                  <input style={{ ...inputStyle, background: '#f8fafb', color: '#64748b' }}
-                    value={gstVerified.business_name} readOnly />
+                  <input
+                    style={inputStyle}
+                    value={clinicName}
+                    onChange={e => setClinicName(e.target.value)}
+                    placeholder="Enter clinic or business name"
+                  />
                 </div>
 
                 <div style={{ marginBottom: 24 }}>
-                  <label style={labelStyle}>Address <span style={{ color: '#94a3b8', fontWeight: 400 }}>(editable)</span></label>
+                  <label style={labelStyle}>Address</label>
                   <input style={inputStyle}
-                    value={gstVerified.address}
-                    onChange={e => setGstVerified(v => ({ ...v, address: e.target.value }))}
+                    value={clinicAddress}
+                    onChange={e => setClinicAddress(e.target.value)}
+                    placeholder="Enter clinic address"
                   />
                 </div>
 
