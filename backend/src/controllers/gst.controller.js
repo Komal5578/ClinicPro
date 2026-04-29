@@ -1,9 +1,11 @@
 const { GST_MODE } = require('../config/env');
+const { getDemoGstProfile, demoGstProfiles } = require('../config/demoGst');
 const { verifyGstReal } = require('../services/gst.service');
 
 const gstVerify = async (req, res) => {
-  const { gst_number } = req.body;
+  const { gst_number, mode } = req.body;
   const normalizedGst = String(gst_number || '').toUpperCase().trim();
+  const selectedMode = String(mode || GST_MODE || 'demo').toLowerCase();
 
   if (!normalizedGst || normalizedGst.length !== 15) {
     return res.status(400).json({ message: 'Invalid GST number format' });
@@ -14,7 +16,7 @@ const gstVerify = async (req, res) => {
     return res.status(400).json({ message: 'GST number format is invalid' });
   }
 
-  if (GST_MODE === 'real') {
+  if (selectedMode === 'real') {
     try {
       const result = await verifyGstReal(normalizedGst);
       if (!result?.verified) {
@@ -31,21 +33,20 @@ const gstVerify = async (req, res) => {
     }
   }
 
-  // Dummy mode — return mock data for any valid format GST
-  const stateCode = normalizedGst.substring(0, 2);
-  const states = {
-    '27': 'Maharashtra', '29': 'Karnataka', '07': 'Delhi',
-    '33': 'Tamil Nadu', '22': 'Chhattisgarh', '06': 'Haryana',
-    '09': 'Uttar Pradesh', '24': 'Gujarat', '19': 'West Bengal',
-  };
+  // Demo mode — only allow a fixed list of hardcoded GSTs for the presentation
+  const demoProfile = getDemoGstProfile(normalizedGst);
+  if (!demoProfile) {
+    return res.status(404).json({
+      message: 'Demo GST number not found. Switch to Real GST mode or choose one of the demo GST numbers.',
+      available_demo_gst_numbers: demoGstProfiles.map((item) => item.gst_number),
+    });
+  }
 
-  res.json({
-    gst_number: normalizedGst,
-    business_name: `ClinicPro Health Services`,
-    address: `Medical Plaza, Sector 12, ${states[stateCode] || 'Mumbai'}, India`,
-    state: states[stateCode] || 'Maharashtra',
-    status: 'Active',
+  return res.json({
+    ...demoProfile,
     verified: true,
+    mode: 'demo',
+    source: 'hardcoded-demo-list',
   });
 };
 

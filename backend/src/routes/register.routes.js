@@ -5,7 +5,10 @@ const { registerDoctor, registerReceptionist } = require('../controllers/registe
 
 const upload = multer({ storage: multer.memoryStorage() });
 
-router.post('/doctor', upload.single('certificate'), registerDoctor);
+router.post('/doctor', upload.fields([
+	{ name: 'certificate', maxCount: 1 },
+	{ name: 'signature', maxCount: 1 },
+]), registerDoctor);
 router.post('/receptionist', registerReceptionist);
 
 module.exports = router;

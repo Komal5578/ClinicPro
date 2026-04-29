@@ -1,15 +1,31 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+const DEMO_GST_OPTIONS = [
+  { gst_number: '27ABCDE1234F1Z5', label: 'ClinicPro Health Services (Mumbai)' },
+  { gst_number: '29ABCDE1234F1Z5', label: 'ClinicPro Care Center (Bengaluru)' },
+  { gst_number: '07ABCDE1234F1Z5', label: 'ClinicPro Family Clinic (Delhi)' },
+  { gst_number: '33ABCDE1234F1Z5', label: 'ClinicPro Dental Studio (Chennai)' },
+  { gst_number: '24ABCDE1234F1Z5', label: 'ClinicPro Ayur Wellness (Ahmedabad)' },
+  { gst_number: '19ABCDE1234F1Z5', label: 'ClinicPro City Clinic (Kolkata)' },
+  { gst_number: '06ABCDE1234F1Z5', label: 'ClinicPro Family Care (Gurugram)' },
+  { gst_number: '09ABCDE1234F1Z5', label: 'ClinicPro Metro Health (Lucknow)' },
+  { gst_number: '22ABCDE1234F1Z5', label: 'ClinicPro Central Clinic (Raipur)' },
+  { gst_number: '08ABCDE1234F1Z5', label: 'ClinicPro Plus Care (Jaipur)' },
+];
+
 const ClinicRegister = () => {
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
+  const [gstMode, setGstMode] = useState('demo');
   const [gst, setGst] = useState('');
   const [gstVerified, setGstVerified] = useState(null);
   const [gstLoading, setGstLoading] = useState(false);
   const [gstError, setGstError] = useState('');
   const [clinicName, setClinicName] = useState('');
   const [clinicAddress, setClinicAddress] = useState('');
+  const [certificateFile, setCertificateFile] = useState(null);
+  const [signatureFile, setSignatureFile] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -44,11 +60,15 @@ const ClinicRegister = () => {
       const res = await fetch('http://localhost:5000/api/gst/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ gst_number: gst.toUpperCase() }),
+        body: JSON.stringify({ gst_number: gst.toUpperCase(), mode: gstMode }),
       });
       const data = await res.json();
       if (!res.ok) {
-        setGstError(data.error || data.message || 'Verification failed');
+        if (data.available_demo_gst_numbers?.length) {
+          setGstError(`${data.message || 'Verification failed'} Demo GSTs: ${data.available_demo_gst_numbers.join(', ')}`);
+        } else {
+          setGstError(data.error || data.message || 'Verification failed');
+        }
         return;
       }
 
@@ -72,16 +92,19 @@ const ClinicRegister = () => {
     setLoading(true);
     setError('');
     try {
+      const formData = new FormData();
+      Object.entries(doctorForm).forEach(([key, value]) => {
+        formData.append(key, value);
+      });
+      formData.append('gst_number', gst.toUpperCase());
+      formData.append('clinic_name', clinicName.trim());
+      formData.append('address', clinicAddress.trim());
+      if (certificateFile) formData.append('certificate', certificateFile);
+      if (signatureFile) formData.append('signature', signatureFile);
+
       const res = await fetch('http://localhost:5000/api/register/doctor', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...doctorForm,
-          gst_number: gst.toUpperCase(),
-          clinic_name: clinicName.trim(),
-          address: clinicAddress.trim(),
-          confirmPassword: undefined,
-        }),
+        body: formData,
       });
       const data = await res.json();
       if (!res.ok) {
@@ -162,8 +185,38 @@ const ClinicRegister = () => {
               Let's verify your clinic first
             </h2>
             <p style={{ color: '#64748b', fontSize: 14, marginBottom: 28, lineHeight: 1.7 }}>
-              We use your GST number to confirm your clinic exists.
+              Use demo GSTs for presentation or a real GST for live verification.
             </p>
+
+            <div style={{ display: 'flex', gap: 10, marginBottom: 18 }}>
+              {[
+                { key: 'demo', label: 'Demo GST' },
+                { key: 'real', label: 'Real GST' },
+              ].map((item) => (
+                <button
+                  key={item.key}
+                  type="button"
+                  onClick={() => {
+                    setGstMode(item.key);
+                    setGst('');
+                    setGstVerified(null);
+                    setGstError('');
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: '10px 12px',
+                    borderRadius: 10,
+                    border: `1px solid ${gstMode === item.key ? '#0f766e' : '#e2e8f0'}`,
+                    background: gstMode === item.key ? '#ccfbf1' : '#fff',
+                    color: '#0f172a',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                  }}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
 
             {gstError && (
               <div style={{
@@ -176,13 +229,28 @@ const ClinicRegister = () => {
 
             <div style={{ marginBottom: 20 }}>
               <label style={labelStyle}>GST Number</label>
-              <input
-                style={{ ...inputStyle, fontFamily: "'JetBrains Mono', monospace", letterSpacing: 1, textTransform: 'uppercase' }}
-                placeholder="22AAAAA0000A1Z5"
-                value={gst}
-                onChange={(e) => { setGst(e.target.value.toUpperCase()); setGstVerified(null); }}
-                maxLength={15}
-              />
+              {gstMode === 'demo' ? (
+                <select
+                  style={{ ...inputStyle, fontFamily: "'JetBrains Mono', monospace", letterSpacing: 1, textTransform: 'uppercase', cursor: 'pointer' }}
+                  value={gst}
+                  onChange={(e) => { setGst(e.target.value.toUpperCase()); setGstVerified(null); }}
+                >
+                  <option value="">Select a demo GST number</option>
+                  {DEMO_GST_OPTIONS.map((item) => (
+                    <option key={item.gst_number} value={item.gst_number}>
+                      {item.gst_number} — {item.label}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  style={{ ...inputStyle, fontFamily: "'JetBrains Mono', monospace", letterSpacing: 1, textTransform: 'uppercase' }}
+                  placeholder="22AAAAA0000A1Z5"
+                  value={gst}
+                  onChange={(e) => { setGst(e.target.value.toUpperCase()); setGstVerified(null); }}
+                  maxLength={15}
+                />
+              )}
             </div>
 
             {!gstVerified ? (
@@ -212,7 +280,7 @@ const ClinicRegister = () => {
                       {gstVerified.business_name}
                     </div>
                     <div style={{ fontSize: 12, color: '#047857' }}>
-                      GST Verified · {gst}
+                      {gstMode === 'demo' ? 'Demo GST Verified' : 'GST Verified'} · {gst}
                     </div>
                   </div>
                 </div>
@@ -330,6 +398,33 @@ const ClinicRegister = () => {
                       <span style={{ color: '#94a3b8' }}>—</span>
                       <input style={{ ...inputStyle, width: 90 }} type="time" value={doctorForm.eveningEnd} onChange={e => setDoctorForm(f => ({ ...f, eveningEnd: e.target.value }))} />
                     </div>
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ marginTop: 14, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                <div>
+                  <label style={labelStyle}>Doctor Certificate</label>
+                  <input
+                    style={{ ...inputStyle, padding: 8, background: '#fff' }}
+                    type="file"
+                    accept="image/*,.pdf"
+                    onChange={(e) => setCertificateFile(e.target.files?.[0] || null)}
+                  />
+                  <div style={{ fontSize: 12, color: '#64748b', marginTop: 6 }}>
+                    JPG, PNG, or PDF
+                  </div>
+                </div>
+                <div>
+                  <label style={labelStyle}>Doctor Signature</label>
+                  <input
+                    style={{ ...inputStyle, padding: 8, background: '#fff' }}
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => setSignatureFile(e.target.files?.[0] || null)}
+                  />
+                  <div style={{ fontSize: 12, color: '#64748b', marginTop: 6 }}>
+                    PNG/JPG signature image
                   </div>
                 </div>
               </div>

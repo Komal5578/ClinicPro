@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const axios = require('axios');
 const PDFDocument = require('pdfkit');
 
 const DEFAULT_CLINIC_NAME = 'ClinicPro Health Center';
@@ -27,6 +28,15 @@ const addLabelValue = (doc, label, value) => {
   doc.font('Helvetica').fillColor('#334155').text(value || '-');
 };
 
+const fetchImageBuffer = async (url) => {
+  try {
+    const response = await axios.get(url, { responseType: 'arraybuffer', timeout: 10000 });
+    return Buffer.from(response.data);
+  } catch {
+    return null;
+  }
+};
+
 const generatePrescriptionPdf = async ({
   prescriptionId,
   clinicName = DEFAULT_CLINIC_NAME,
@@ -40,8 +50,10 @@ const generatePrescriptionPdf = async ({
   followupInstructions = '',
   items = [],
   createdAt = new Date(),
+  doctorSignatureUrl = null,
 }) => {
   await ensureOutputDir();
+  const signatureBuffer = doctorSignatureUrl ? await fetchImageBuffer(doctorSignatureUrl) : null;
 
   const fileName = `prescription_${prescriptionId}.pdf`;
   const filePath = path.join(OUTPUT_DIR, fileName);
@@ -111,8 +123,18 @@ const generatePrescriptionPdf = async ({
     doc.moveDown(1.1);
     doc.font('Helvetica-Bold').fontSize(12).fillColor('#0f172a').text('Doctor Signature');
     doc.moveDown(0.2);
-    doc.moveTo(doc.x, doc.y + 20).lineTo(doc.x + 180, doc.y + 20).strokeColor('#94a3b8').stroke();
-    doc.moveDown(0.35);
+    if (signatureBuffer) {
+      try {
+        doc.image(signatureBuffer, doc.x, doc.y, { fit: [180, 60] });
+        doc.moveDown(3.2);
+      } catch {
+        doc.moveTo(doc.x, doc.y + 20).lineTo(doc.x + 180, doc.y + 20).strokeColor('#94a3b8').stroke();
+        doc.moveDown(0.35);
+      }
+    } else {
+      doc.moveTo(doc.x, doc.y + 20).lineTo(doc.x + 180, doc.y + 20).strokeColor('#94a3b8').stroke();
+      doc.moveDown(0.35);
+    }
     doc.font('Helvetica').fontSize(10).fillColor('#475569').text(doctorName);
     doc.text(`${speciality}`, { continued: false });
 

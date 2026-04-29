@@ -5,7 +5,7 @@ const getDoctorProfile = async (req, res) => {
   const doctor_id = req.user.id;
   try {
     const [rows] = await db.query(
-      'SELECT doctor_id, name, specialization, phone, email FROM Doctor WHERE doctor_id = ?',
+      'SELECT doctor_id, name, specialization, phone, email, certificate_url, digital_signature_path FROM Doctor WHERE doctor_id = ?',
       [doctor_id]
     );
     if (rows.length === 0) {

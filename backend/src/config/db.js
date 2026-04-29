@@ -217,7 +217,7 @@ const db = {
 
   async handleInsert(sql, params) {
     try {
-      const tableMatch = sql.match(/INSERT\s+INTO\s+`?([a-zA-Z_]+)`?/i);
+      const tableMatch = sql.match(/INSERT(?:\s+IGNORE)?\s+INTO\s+`?([a-zA-Z_]+)`?/i);
       const columnsMatch = sql.match(/\(([^)]+)\)/);
 
       if (!tableMatch || !columnsMatch) {

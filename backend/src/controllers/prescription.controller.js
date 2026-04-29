@@ -55,6 +55,7 @@ const generatePrescription = async (req, res) => {
               c.chief_complaint, c.diagnosis_note, c.followup_instructions,
               p.name as patient_name, p.age, p.phone,
               d.name as doctor_name, d.specialization,
+              d.digital_signature_path as doctor_signature_url,
               cl.clinic_name
        FROM Consultation c
        JOIN Patient p ON c.patient_id = p.patient_id
@@ -97,6 +98,7 @@ const generatePrescription = async (req, res) => {
       diagnosisNote: consultation.diagnosis_note,
       followupInstructions: consultation.followup_instructions,
       items,
+      doctorSignatureUrl: consultation.doctor_signature_url,
     });
 
     await db.query(

@@ -1,6 +1,7 @@
 const db = require('../config/db');
 const bcrypt = require('bcryptjs');
 const { geocodeAddress } = require('../utils/geocode');
+const { uploadDoctorCertificate, uploadDoctorSignature } = require('../services/storage.service');
 
 const registerDoctor = async (req, res) => {
   const body = req.body || {};
@@ -10,6 +11,9 @@ const registerDoctor = async (req, res) => {
     eveningStart, eveningEnd, gst_number, clinic_name, address,
   } = body;
   const normalizedGst = String(gst_number || '').toUpperCase().trim();
+  const certificateFile = req.files?.certificate?.[0] || req.file?.certificate || null;
+  const signatureFile = req.files?.signature?.[0] || req.file?.signature || null;
+  const storagePrefix = `doctor-uploads/${normalizedGst || String(email || 'doctor').toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
 
   try {
     // Check if doctor email already exists
@@ -20,11 +24,25 @@ const registerDoctor = async (req, res) => {
 
     const password_hash = await bcrypt.hash(password, 10);
 
-    // Insert Doctor
+    const certificateUpload = await uploadDoctorCertificate(certificateFile, storagePrefix);
+    const signatureUpload = await uploadDoctorSignature(signatureFile, storagePrefix);
+
     const [doctorResult] = await db.query(
-      `INSERT INTO Doctor (name, email, phone, password_hash, specialization, registration_no, sector, registration_type, nmc_verified)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [name, email, phone, password_hash, sector, registrationNumber, sector, registrationType, false]
+      `INSERT INTO Doctor (name, email, phone, password_hash, specialization, registration_no, sector, registration_type, nmc_verified, certificate_url, digital_signature_path)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        name,
+        email,
+        phone,
+        password_hash,
+        sector,
+        registrationNumber,
+        sector,
+        registrationType,
+        false,
+        certificateUpload?.url || null,
+        signatureUpload?.url || null,
+      ]
     );
     const doctor_id = doctorResult.insertId;
 
@@ -38,13 +56,11 @@ const registerDoctor = async (req, res) => {
     if (existingClinic.length > 0) {
       clinic_id = existingClinic[0].clinic_id;
 
-      const coords = await geocodeAddress(address);
-
+      // Keep the existing GST-verified clinic record.
+      // New doctors are linked through DoctorClinic so one clinic can have many doctors.
       await db.query(
-        `UPDATE Clinic
-         SET doctor_id = ?, clinic_name = ?, address = ?, sector = ?, morning_start = ?, morning_end = ?, evening_start = ?, evening_end = ?, booked_slot_duration = ?, latitude = ?, longitude = ?
-         WHERE clinic_id = ?`,
-        [doctor_id, clinic_name, address, sector, morningStart, morningEnd, eveningStart, eveningEnd, slotDuration || 20, coords?.lat || null, coords?.lng || null, clinic_id]
+        'INSERT IGNORE INTO DoctorClinic (doctor_id, clinic_id) VALUES (?, ?)',
+        [doctor_id, clinic_id]
       );
     } else {
       // Insert Clinic
@@ -56,18 +72,19 @@ const registerDoctor = async (req, res) => {
         [doctor_id, clinic_name, address, normalizedGst, sector, morningStart, morningEnd, eveningStart, eveningEnd, slotDuration || 20, coords?.lat || null, coords?.lng || null]
       );
       clinic_id = clinicResult.insertId;
-    }
 
-    // Insert DoctorClinic mapping
-    await db.query(
-      'INSERT IGNORE INTO DoctorClinic (doctor_id, clinic_id) VALUES (?, ?)',
-      [doctor_id, clinic_id]
-    );
+      await db.query(
+        'INSERT IGNORE INTO DoctorClinic (doctor_id, clinic_id) VALUES (?, ?)',
+        [doctor_id, clinic_id]
+      );
+    }
 
     res.status(201).json({
       message: 'Doctor and clinic registered successfully',
       doctor_id,
       clinic_id,
+      certificate_url: certificateUpload?.url || null,
+      digital_signature_path: signatureUpload?.url || null,
     });
   } catch (err) {
     console.error('Doctor registration error:', err);
