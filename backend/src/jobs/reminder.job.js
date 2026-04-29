@@ -76,14 +76,25 @@ const processDueReminders = async () => {
 		return;
 	}
 
-	const [reminders] = await db.query(
-		`SELECT r.reminder_id, r.reminder_type, r.scheduled_for, p.name AS patient_name, p.phone
-		 FROM Reminder r
-		 JOIN Patient p ON p.patient_id = r.patient_id
-		 WHERE r.sent = FALSE AND r.scheduled_for <= NOW()
-		 ORDER BY r.scheduled_for ASC
-		 LIMIT 25`
-	);
+		let reminders = [];
+		try {
+			const result = await db.query(
+				`SELECT r.reminder_id, r.reminder_type, r.scheduled_for, p.name AS patient_name, p.phone
+				 FROM Reminder r
+				 JOIN Patient p ON p.patient_id = r.patient_id
+				 WHERE r.sent = FALSE AND r.scheduled_for <= NOW()
+				 ORDER BY r.scheduled_for ASC
+				 LIMIT 25`
+			);
+			reminders = result[0] || [];
+		} catch (err) {
+			// Supabase/PostgREST error when table not present: PGRST205
+			if (err && (err.code === 'PGRST205' || (err.message && err.message.includes("Could not find the table 'public.reminder'")))) {
+				console.warn('Reminder table not found in the database. Skipping reminder processing until schema is applied.');
+				return;
+			}
+			throw err;
+		}
 
 	for (const reminder of reminders) {
 		const to = normalizeToWhatsApp(reminder.phone);

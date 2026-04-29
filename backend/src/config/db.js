@@ -186,9 +186,27 @@ const db = {
     try {
       const parts = orderClause.split(',');
       parts.forEach(part => {
-        const [column, direction] = part.trim().split(/\s+/);
+        let raw = part.trim();
+
+        // Handle dot-suffixed direction, e.g. "r.scheduled_for.asc"
+        let direction = null;
+        const dotParts = raw.split('.');
+        const lastDot = dotParts[dotParts.length - 1].toLowerCase();
+        if (['asc', 'desc', 'nullsfirst', 'nullslast'].includes(lastDot)) {
+          direction = lastDot;
+          raw = dotParts.slice(0, dotParts.length - 1).join('.');
+        }
+
+        // Handle whitespace separated direction, e.g. "r.scheduled_for ASC"
+        const wsParts = raw.split(/\s+/);
+        const columnPart = wsParts[0];
+        if (!direction && wsParts[1]) direction = wsParts[1].toLowerCase();
+
+        // Strip any table alias before the column name (e.g. "r.scheduled_for" -> "scheduled_for")
+        const columnOnly = columnPart.includes('.') ? columnPart.split('.').pop() : columnPart;
+
         const ascending = !direction || direction.toUpperCase() !== 'DESC';
-        query = query.order(this.normalizeColumnName(column), { ascending });
+        query = query.order(this.normalizeColumnName(columnOnly), { ascending });
       });
       return query;
     } catch (error) {
