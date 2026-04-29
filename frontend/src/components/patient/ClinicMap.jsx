@@ -93,6 +93,7 @@ const ClinicMap = ({ clinics = [], sectorFilter, onClinicSelect, routeTarget, us
   const markersRef = useRef([]);
   const routeLineRef = useRef(null);
   const userMarkerRef = useRef(null);
+  const [selectedClinicCard, setSelectedClinicCard] = useState(null);
 
   const getFilteredClinics = useMemo(() => {
     const hasSearch = !!(search && search.trim());
@@ -280,11 +281,13 @@ const ClinicMap = ({ clinics = [], sectorFilter, onClinicSelect, routeTarget, us
         const popup = document.getElementById(`route-${popupId}`);
         const book = document.getElementById(`book-${popupId}`);
         if (popup) popup.onclick = () => drawRoute(clinic);
-        if (book) book.onclick = () => (onClinicSelect ? onClinicSelect(clinic) : navigate(`/patient/clinic/${clinic.clinic_id}`));
+        // Open the clinic info card instead of navigating directly
+        if (book) book.onclick = () => setSelectedClinicCard(clinic);
       });
 
       marker.on('click', () => {
-        if (onClinicSelect) onClinicSelect(clinic);
+        // clicking marker opens the clinic card for confirmation before booking
+        setSelectedClinicCard(clinic);
       });
 
       marker.on('popupclose', () => {
@@ -327,7 +330,7 @@ const ClinicMap = ({ clinics = [], sectorFilter, onClinicSelect, routeTarget, us
   }, [routePoints, routeColor]);
 
   return (
-    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', gap: 10 }}>
+    <div style={{ position: 'relative', height: '100%', display: 'flex', flexDirection: 'column', gap: 10 }}>
       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
         <input
           value={search}
@@ -444,6 +447,31 @@ const ClinicMap = ({ clinics = [], sectorFilter, onClinicSelect, routeTarget, us
           border: '1px solid #e2e8f0',
         }}
       />
+
+      {selectedClinicCard && (
+        <div style={{ position: 'absolute', right: 24, top: 120, zIndex: 9999 }}>
+          <div style={{ width: 320, borderRadius: 12, background: 'white', boxShadow: '0 8px 30px rgba(2,6,23,0.12)', border: '1px solid #e6eef6', overflow: 'hidden' }}>
+            <div style={{ padding: 14, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <div style={{ fontSize: 15, fontWeight: 800 }}>{selectedClinicCard.clinic_name}</div>
+                <div style={{ fontSize: 13, color: '#475569', marginTop: 4 }}>Dr. {selectedClinicCard.doctor_name || 'Doctor'}</div>
+                <div style={{ fontSize: 12, color: '#64748b', marginTop: 8 }}>
+                  🌅 {selectedClinicCard.morning_start?.slice(0,5) || '09:00'} – {selectedClinicCard.morning_end?.slice(0,5) || '13:00'} · 🌆 {selectedClinicCard.evening_start?.slice(0,5) || '17:00'} – {selectedClinicCard.evening_end?.slice(0,5) || '21:00'}
+                </div>
+              </div>
+              <button onClick={() => setSelectedClinicCard(null)} style={{ background: 'transparent', border: 'none', fontSize: 18, cursor: 'pointer', color: '#64748b' }}>✕</button>
+            </div>
+            <div style={{ padding: 12, borderTop: '1px solid #f1f7fb', display: 'flex', gap: 8 }}>
+              <button onClick={() => { drawRoute(selectedClinicCard); }} style={{ flex: 1, padding: '10px 12px', borderRadius: 8, border: '1px solid #e2e8f0', background: 'white', fontWeight: 700, cursor: 'pointer' }}>🗺️ Route</button>
+              <button onClick={() => {
+                setSelectedClinicCard(null);
+                if (onClinicSelect) onClinicSelect(selectedClinicCard);
+                else navigate(`/patient/clinic/${selectedClinicCard.clinic_id}`);
+              }} style={{ flex: 1, padding: '10px 12px', borderRadius: 8, border: 'none', background: getColor(selectedClinicCard.sector), color: 'white', fontWeight: 800, cursor: 'pointer' }}>Book Appointment →</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div style={{ display: 'flex', gap: 16, paddingTop: 10, justifyContent: 'center' }}>
         {[

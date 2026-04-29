@@ -12,12 +12,14 @@ const formatTime = (minutesTotal) => {
   return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00`;
 };
 
+const gcd = (a, b) => (b === 0 ? a : gcd(b, a % b));
+
 const buildPattern = (bookedCount, walkinCount) => {
   const pattern = [];
   const booked = Math.max(1, Number(bookedCount) || 1);
   const walkins = Math.max(0, Number(walkinCount) || 0);
   for (let i = 0; i < booked; i += 1) pattern.push('BOOKED');
-  for (let i = 0; i < walkins; i += 1) pattern.push('WALKIN');
+  for (let i = 0; i < walkins; i += 1) pattern.push('BUFFER');
   return pattern.length ? pattern : ['BOOKED'];
 };
 
@@ -25,51 +27,53 @@ const generateSlotRows = (params) => {
   const rows = [];
   let token = 1;
 
-  const addRange = (startTime, endTime, pattern, bookedDuration, walkinDuration) => {
+  const bookedDuration = Number(params.booked_duration) || 20;
+  const walkinDuration = Number(params.walkin_duration) || 15;
+  // Use duration-based defaults, but allow doctor-defined token counts.
+  const tokenDuration = gcd(bookedDuration, walkinDuration);
+  const derivedBookedTokens = Math.ceil(bookedDuration / tokenDuration);
+  const derivedBufferTokens = Math.ceil(walkinDuration / tokenDuration);
+  const tokensPerBooked = Math.max(1, Number(params.booked_token_count) || derivedBookedTokens);
+  const tokensPerBuffer = Math.max(1, Number(params.buffer_token_count) || derivedBufferTokens);
+
+  const addRange = (startTime, endTime, pattern, bookedDur, walkinDur) => {
     let cursor = parseTime(startTime);
     const end = parseTime(endTime);
     let patternIndex = 0;
 
     while (cursor < end) {
       const slotType = pattern[patternIndex % pattern.length];
-      const duration = slotType === 'WALKIN' ? walkinDuration : bookedDuration;
+      const duration = slotType === 'BUFFER' ? walkinDur : bookedDur;
       if (cursor + duration > end) break;
 
-      rows.push({
-        clinic_id: params.clinic_id,
-        slot_date: params.date,
-        slot_start_time: formatTime(cursor),
-        slot_type: slotType,
-        status: 'OPEN',
-        token_number: token,
-      });
+      // Determine how many tokens this slot spans
+      const numTokens = slotType === 'BUFFER' ? tokensPerBuffer : tokensPerBooked;
+      const slotStartTime = formatTime(cursor);
+
+      // Create tokens for this slot, all with the same start time but incrementing token numbers
+      for (let i = 0; i < numTokens; i += 1) {
+        rows.push({
+          clinic_id: params.clinic_id,
+          slot_date: params.date,
+          slot_start_time: slotStartTime,
+          slot_type: slotType,
+          status: 'OPEN',
+          token_number: token,
+          appointment_group_id: `${slotStartTime}-${slotType}`, // Group tokens by appointment
+        });
+        token += 1;
+      }
 
       cursor += duration;
       patternIndex += 1;
-      token += 1;
     }
   };
 
   const bookedPattern = buildPattern(Number(params.walkin_to_booked_ratio) || 3, 1);
-  addRange(params.morning_start, params.morning_end, bookedPattern, Number(params.booked_duration) || 20, Number(params.walkin_duration) || 15);
+  addRange(params.morning_start, params.morning_end, bookedPattern, bookedDuration, walkinDuration);
 
   if (params.evening_start && params.evening_end) {
-    const gapStart = parseTime(params.morning_end);
-    const gapEnd = parseTime(params.evening_start);
-    let cursor = gapStart;
-    while (cursor + 15 <= gapEnd) {
-      rows.push({
-        clinic_id: params.clinic_id,
-        slot_date: params.date,
-        slot_start_time: formatTime(cursor),
-        slot_type: 'BUFFER',
-        status: 'OPEN',
-        token_number: token,
-      });
-      cursor += 15;
-      token += 1;
-    }
-    addRange(params.evening_start, params.evening_end, bookedPattern, Number(params.booked_duration) || 20, Number(params.walkin_duration) || 15);
+    addRange(params.evening_start, params.evening_end, bookedPattern, bookedDuration, walkinDuration);
   }
 
   return rows;
@@ -111,6 +115,8 @@ const generateSlots = async (req, res) => {
       booked_duration: body.booked_duration || 20,
       walkin_duration: body.walkin_duration || 15,
       walkin_to_booked_ratio: body.walkin_to_booked_ratio || 3,
+      booked_token_count: body.booked_token_count,
+      buffer_token_count: body.buffer_token_count,
     });
 
     await db.query('DELETE FROM Slot WHERE clinic_id = ? AND slot_date = ?', [clinic_id, date]);

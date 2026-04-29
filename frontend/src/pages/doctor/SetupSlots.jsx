@@ -22,21 +22,50 @@ const formatMinutes = (minutesTotal) => {
   return `${String(hour12).padStart(2, '0')}:${String(m).padStart(2, '0')} ${suffix}`;
 };
 
-const buildPreview = ({ morningStart, morningEnd, eveningStart, eveningEnd, bookedDuration, walkinDuration, ratio }) => {
+const gcd = (a, b) => (b === 0 ? a : gcd(b, a % b));
+
+const buildPreview = ({
+  morningStart,
+  morningEnd,
+  eveningStart,
+  eveningEnd,
+  bookedDuration,
+  walkinDuration,
+  ratio,
+  bookedTokenCount,
+  bufferTokenCount,
+}) => {
   const rows = [];
   let token = 1;
-  const pattern = [...Array(Math.max(1, Number(ratio) || 3)).fill('BOOKED'), 'WALKIN'];
+  
+  const bookedDur = Number(bookedDuration) || 20;
+  const walkinDur = Number(walkinDuration) || 15;
+  const tokenDuration = gcd(bookedDur, walkinDur);
+  const derivedBookedTokens = Math.ceil(bookedDur / tokenDuration);
+  const derivedBufferTokens = Math.ceil(walkinDur / tokenDuration);
+  const tokensPerBooked = Math.max(1, Number(bookedTokenCount) || derivedBookedTokens);
+  const tokensPerBuffer = Math.max(1, Number(bufferTokenCount) || derivedBufferTokens);
+  
+  const pattern = [...Array(Math.max(1, Number(ratio) || 3)).fill('BOOKED'), 'BUFFER'];
 
   const addRange = (start, end) => {
     let cursor = parseMinutes(start);
     const limit = parseMinutes(end);
     let idx = 0;
-    while (cursor + Math.min(bookedDuration, walkinDuration) <= limit) {
+    while (cursor + Math.min(bookedDur, walkinDur) <= limit) {
       const type = pattern[idx % pattern.length];
-      const duration = type === 'WALKIN' ? walkinDuration : bookedDuration;
+      const duration = type === 'BUFFER' ? walkinDur : bookedDur;
       if (cursor + duration > limit) break;
-      rows.push({ token, type, time: formatMinutes(cursor) });
-      token += 1;
+      
+      const numTokens = type === 'BUFFER' ? tokensPerBuffer : tokensPerBooked;
+      const time = formatMinutes(cursor);
+      const groupId = `${time}-${type}`;
+      
+      for (let i = 0; i < numTokens; i += 1) {
+        rows.push({ token, type, time, groupId, isFirst: i === 0, isLast: i === numTokens - 1, duration });
+        token += 1;
+      }
+      
       cursor += duration;
       idx += 1;
     }
@@ -45,13 +74,6 @@ const buildPreview = ({ morningStart, morningEnd, eveningStart, eveningEnd, book
   addRange(morningStart, morningEnd);
 
   if (eveningStart && eveningEnd) {
-    let cursor = parseMinutes(morningEnd);
-    const limit = parseMinutes(eveningStart);
-    while (cursor + 15 <= limit) {
-      rows.push({ token, type: 'BUFFER', time: formatMinutes(cursor) });
-      token += 1;
-      cursor += 15;
-    }
     addRange(eveningStart, eveningEnd);
   }
 
@@ -68,6 +90,8 @@ const DoctorSetupSlots = () => {
   const [eveningEnd, setEveningEnd] = useState('21:00');
   const [bookedDuration, setBookedDuration] = useState(20);
   const [walkinDuration, setWalkinDuration] = useState(15);
+  const [bookedTokenCount, setBookedTokenCount] = useState(1);
+  const [bufferTokenCount, setBufferTokenCount] = useState(1);
   const [ratio, setRatio] = useState(3);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -81,7 +105,9 @@ const DoctorSetupSlots = () => {
     bookedDuration: Number(bookedDuration) || 20,
     walkinDuration: Number(walkinDuration) || 15,
     ratio: Number(ratio) || 3,
-  }), [morningStart, morningEnd, eveningStart, eveningEnd, bookedDuration, walkinDuration, ratio]);
+    bookedTokenCount: Number(bookedTokenCount) || 1,
+    bufferTokenCount: Number(bufferTokenCount) || 1,
+  }), [morningStart, morningEnd, eveningStart, eveningEnd, bookedDuration, walkinDuration, ratio, bookedTokenCount, bufferTokenCount]);
 
   const handleSubmit = async () => {
     if (!selectedClinicId) {
@@ -103,6 +129,8 @@ const DoctorSetupSlots = () => {
         booked_duration: Number(bookedDuration) || 20,
         walkin_duration: Number(walkinDuration) || 15,
         walkin_to_booked_ratio: Number(ratio) || 3,
+        booked_token_count: Number(bookedTokenCount) || 1,
+        buffer_token_count: Number(bufferTokenCount) || 1,
       });
       if (res.data?.available === false) {
         setSuccess('Marked as not available for the selected date.');
@@ -178,10 +206,24 @@ const DoctorSetupSlots = () => {
                   </div>
                 </div>
 
+                <div className="grid-2">
+                  <div className="form-group">
+                    <label className="form-label">Booked Tokens Per Slot</label>
+                    <input type="number" className="form-input" min={1} value={bookedTokenCount} onChange={(e) => setBookedTokenCount(e.target.value)} />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Buffer Tokens Per Slot</label>
+                    <input type="number" className="form-input" min={1} value={bufferTokenCount} onChange={(e) => setBufferTokenCount(e.target.value)} />
+                  </div>
+                </div>
+
                 <div className="form-group">
                   <label className="form-label">Walk-in to Booked Ratio</label>
                   <input type="number" className="form-input" min={1} value={ratio} onChange={(e) => setRatio(e.target.value)} />
                   <div style={{ fontSize: 12, color: '#64748b', marginTop: 6 }}>For every {ratio} booked slots, 1 walk-in slot will be inserted.</div>
+                  <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>
+                    Doctor controls tokens: {bookedTokenCount || 1} token(s) for each {bookedDuration || 20} min booked slot, {bufferTokenCount || 1} token(s) for each {walkinDuration || 15} min buffer.
+                  </div>
                 </div>
               </>
             )}
@@ -194,18 +236,55 @@ const DoctorSetupSlots = () => {
           <div className="card">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
               <h3 style={{ fontSize: 15, fontWeight: 700 }}>Preview</h3>
-              <span className="badge badge-primary">{preview.length} slots</span>
+              <span className="badge badge-primary">{preview.length} tokens</span>
             </div>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              {preview.map((slot) => (
-                <div key={`${slot.token}-${slot.time}`} style={{
-                  padding: '10px 12px', borderRadius: 12,
-                  border: '1px solid #e2e8f0', background: slot.type === 'BUFFER' ? '#f8fafc' : 'white',
-                  minWidth: 100,
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {preview.reduce((groups, slot) => {
+                const lastGroup = groups[groups.length - 1];
+                if (lastGroup && lastGroup[0].groupId === slot.groupId) {
+                  lastGroup.push(slot);
+                } else {
+                  groups.push([slot]);
+                }
+                return groups;
+              }, []).map((group) => (
+                <div key={group[0].groupId} style={{
+                  padding: '12px 14px',
+                  borderRadius: 10,
+                  border: '1px solid #e2e8f0',
+                  background: group[0].type === 'BUFFER' ? '#f8fafc' : 'white',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 12,
                 }}>
-                  <div style={{ fontWeight: 800, fontSize: 18 }}>T-{slot.token}</div>
-                  <div style={{ fontSize: 13, color: '#334155' }}>{slot.time}</div>
-                  <div style={{ fontSize: 11, fontWeight: 700, marginTop: 4 }}>{slot.type}</div>
+                  <div style={{
+                    flex: 1,
+                    display: 'flex',
+                    gap: 6,
+                    flexWrap: 'wrap',
+                    alignItems: 'center',
+                  }}>
+                    {group.map((slot) => (
+                      <div key={slot.token} style={{
+                        padding: '6px 10px',
+                        borderRadius: 8,
+                        background: slot.type === 'BUFFER' ? '#e2e8f0' : '#dbeafe',
+                        fontSize: 12,
+                        fontWeight: 800,
+                        fontFamily: 'DM Mono, monospace',
+                        whiteSpace: 'nowrap',
+                        border: `1px solid ${slot.type === 'BUFFER' ? '#cbd5e1' : '#bfdbfe'}`,
+                      }}>
+                        T-{slot.token}
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ textAlign: 'right', fontSize: 13, fontWeight: 600 }}>
+                    <div>{group[0].time}</div>
+                    <div style={{ fontSize: 11, color: '#64748b', fontWeight: 500 }}>
+                      {group[0].type} • {group[0].duration} min
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
