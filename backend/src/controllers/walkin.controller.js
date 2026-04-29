@@ -38,7 +38,9 @@ const getTodayWalkIns = async (req, res) => {
               p.name as patient_name, p.phone, p.age
        FROM WalkIn w
        JOIN Patient p ON w.patient_id = p.patient_id
-       WHERE w.clinic_id = ? AND DATE(w.arrived_at) = CURDATE()
+        WHERE w.clinic_id = ?
+        AND DATE(w.arrived_at) = CURDATE()
+        AND w.status IN ('WAITING', 'IN_CONSULTATION')
        ORDER BY w.priority DESC, w.arrived_at ASC`,
       [clinic_id]
     );

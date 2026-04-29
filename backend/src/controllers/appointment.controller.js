@@ -11,12 +11,15 @@ const getTodayAppointments = async (req, res) => {
        FROM Appointment a
        JOIN Patient p ON a.patient_id = p.patient_id
        JOIN Slot s ON a.slot_id = s.slot_id
-       WHERE a.clinic_id = ? AND s.slot_date = CURDATE()
+        WHERE a.clinic_id = ?
+        AND s.slot_date = CURDATE()
+        AND a.status IN ('SCHEDULED', 'ARRIVED')
        ORDER BY s.token_number ASC, s.slot_start_time ASC`,
       [clinic_id]
     );
     res.json(rows);
   } catch (err) {
+      console.error('TODAY APPOINTMENTS ERROR:', err.message);
     res.status(500).json({ message: 'Server error', error: err.message });
   }
 };

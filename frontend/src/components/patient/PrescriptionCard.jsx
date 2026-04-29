@@ -1,12 +1,22 @@
+import { apiOrigin } from '../../services/api';
+
 const PrescriptionCard = ({ consultation, prescriptions }) => {
   const date = new Date(consultation.consultation_date).toLocaleDateString('en-IN', {
     day: 'numeric', month: 'short', year: 'numeric'
   });
 
   // Filter prescriptions for this consultation
-  const meds = prescriptions?.filter(p =>
-    p.generated_at >= consultation.consultation_date
-  ) || [];
+  const meds = prescriptions?.filter((p) => {
+    if (p.consultation_id) return Number(p.consultation_id) === Number(consultation.consultation_id);
+    return p.generated_at >= consultation.consultation_date;
+  }) || [];
+
+  const latestWithPdf = meds.find((med) => med.pdf_path);
+
+  const handleViewPdf = () => {
+    if (!latestWithPdf?.pdf_path) return;
+    window.open(`${apiOrigin}/pdfs/${latestWithPdf.pdf_path}`, '_blank', 'noopener,noreferrer');
+  };
 
   return (
     <div style={{
@@ -63,6 +73,27 @@ const PrescriptionCard = ({ consultation, prescriptions }) => {
               )}
             </div>
           ))}
+
+          {latestWithPdf?.pdf_path && (
+            <div style={{ marginTop: 10 }}>
+              <button
+                type="button"
+                onClick={handleViewPdf}
+                style={{
+                  border: '1px solid #0f6fff',
+                  background: 'white',
+                  color: '#0f6fff',
+                  borderRadius: 8,
+                  padding: '8px 12px',
+                  fontWeight: 700,
+                  fontSize: 12,
+                  cursor: 'pointer',
+                }}
+              >
+                View Prescription PDF
+              </button>
+            </div>
+          )}
         </div>
       )}
 

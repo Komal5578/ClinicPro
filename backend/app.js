@@ -26,6 +26,11 @@ const app = express();
 app.use(helmet());
 app.use(cors());
 app.use(express.json());
+app.use('/pdfs', (req, res, next) => {
+  res.removeHeader('X-Frame-Options');
+  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+  next();
+});
 app.use('/pdfs', express.static(path.join(__dirname, 'generated/pdfs')));
 
 app.use('/api/auth', authRoutes);

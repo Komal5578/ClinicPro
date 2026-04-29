@@ -20,10 +20,11 @@ const getPatientHistory = async (req, res) => {
     console.log(req.body);
     // Prescription items via consultation
     const [prescriptions] = await db.query(
-      `SELECT pi.*, pr.generated_at, pr.pdf_path
+      `SELECT pi.*, pr.consultation_id, pr.generated_at, pr.pdf_path
        FROM PrescriptionItem pi
        JOIN Prescription pr ON pi.prescription_id = pr.prescription_id
        WHERE pr.patient_id = ?
+       AND pr.pdf_path IS NOT NULL
        ORDER BY pr.generated_at DESC`,
       [patient_id]
     );
@@ -78,9 +79,15 @@ const saveConsultation = async (req, res) => {
       );
     }
 
+    const [[clinic]] = await db.query(
+      'SELECT clinic_name FROM Clinic WHERE clinic_id = ? LIMIT 1',
+      [clinic_id]
+    );
+
     res.status(201).json({
       message: 'Consultation saved',
-      consultation_id: result.insertId
+      consultation_id: result.insertId,
+      clinic_name: clinic?.clinic_name || 'Sunrise Family Clinic'
     });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });

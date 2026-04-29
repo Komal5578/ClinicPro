@@ -5,6 +5,9 @@ const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
+export const apiBaseUrl = api.defaults.baseURL;
+export const apiOrigin = api.defaults.baseURL.replace(/\/api$/, '');
+
 // Attach token to every request automatically
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
@@ -53,6 +56,11 @@ export const saveConsultation = (data) => api.post('/consultations/save', data);
 
 // Prescription
 export const generatePrescription = (data) => api.post('/prescriptions/generate', data);
+export const getDraftPrescriptionByConsultation = (consultation_id) => api.get(`/prescriptions/consultation/${consultation_id}/draft`);
+export const createDraftPrescription = (data) => api.post('/prescriptions/draft', data);
+export const updateDraftPrescription = (prescription_id, data) => api.put(`/prescriptions/${prescription_id}/draft`, data);
+export const finalizePrescription = (prescription_id, data) => api.post(`/prescriptions/${prescription_id}/finalize`, data);
+export const aiAutofillPrescription = (data) => api.post('/prescriptions/ai-autofill', data);
 export const getPrescription = (id) => api.get(`/prescriptions/${id}`);
 export const getPatientPrescriptions = (token) => api.get('/prescriptions', {
   headers: { Authorization: `Bearer ${token}` },
