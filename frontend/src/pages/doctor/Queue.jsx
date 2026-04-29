@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from '../../components/common/Sidebar';
-import { getTodayAppointments, getTodayWalkIns, updateWalkInStatus, setDoctorStatus, insertUrgentPatient, generateSlots } from '../../services/api';
+import { getTodayAppointments, getUpcomingAppointments, getTodayWalkIns, updateWalkInStatus, setDoctorStatus, insertUrgentPatient, generateSlots } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 
 const DoctorControls = ({ clinicId }) => {
@@ -181,11 +181,12 @@ const UrgentPatientForm = ({ clinicId, onClose }) => {
 };
 
 const Queue = () => {
-  const { user } = useAuth();
+  const { user, selectedClinicId } = useAuth();
   const navigate = useNavigate();
-  const clinic_id = user?.clinic_id || 1;
+  const clinic_id = selectedClinicId || user?.clinic_id || 1;
 
   const [appointments, setAppointments] = useState([]);
+  const [upcomingAppointments, setUpcomingAppointments] = useState([]);
   const [walkIns, setWalkIns] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
@@ -194,12 +195,14 @@ const Queue = () => {
   const fetchData = async () => {
     try {
       setLoadError('');
-      const [appt, wi] = await Promise.all([
+      const [appt, upcoming, wi] = await Promise.all([
         getTodayAppointments(clinic_id),
+        getUpcomingAppointments(clinic_id),
         getTodayWalkIns(clinic_id),
       ]);
       setAppointments(appt.data);
-      setWalkIns(wi.data);
+      setUpcomingAppointments(upcoming.data || []);
+      setWalkIns(wi.data || []);
     } catch (err) {
       const message = err.response?.data?.message || err.response?.data?.error || 'Failed to load queue data';
       setLoadError(message);
@@ -213,7 +216,7 @@ const Queue = () => {
     fetchData();
     const interval = setInterval(fetchData, 30000);
     return () => clearInterval(interval);
-  }, []);
+  }, [clinic_id]);
 
 
  const startConsultation = async (walkin) => {
@@ -446,6 +449,48 @@ const Queue = () => {
                 </div>
               ))
             )}
+
+            <div className="card" style={{ marginTop: 16 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                <h3 style={{ fontSize: 15, fontWeight: 700 }}>Upcoming Appointments</h3>
+                <span className="badge badge-primary">{upcomingAppointments.length}</span>
+              </div>
+
+              {upcomingAppointments.length === 0 ? (
+                <div className="empty-state">
+                  <div className="empty-state-icon"></div>
+                  <p>No upcoming appointments</p>
+                </div>
+              ) : (
+                upcomingAppointments.map((a, i) => (
+                  <div key={a.appointment_id} style={{
+                    display: 'flex', alignItems: 'center', gap: 14,
+                    padding: '14px 0',
+                    borderBottom: i < upcomingAppointments.length - 1 ? '1px solid #f1f5f9' : 'none',
+                  }}>
+                    <div style={{
+                      background: '#eff6ff', color: '#1d4ed8',
+                      borderRadius: 9, padding: '8px 12px',
+                      fontSize: 13, fontWeight: 700,
+                      fontFamily: "'JetBrains Mono', monospace",
+                      whiteSpace: 'nowrap', minWidth: 90, textAlign: 'center',
+                    }}>
+                      {a.slot_date ? new Date(a.slot_date).toLocaleDateString() : ''}
+                      <br />
+                      {a.slot_start_time?.slice(0, 5)}
+                    </div>
+                    <div className="patient-avatar">{a.patient_name?.[0] || '?'}</div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 700, fontSize: 14 }}>{a.patient_name}</div>
+                      <div style={{ fontSize: 12, color: '#64748b' }}>Age {a.age} · {a.phone}</div>
+                    </div>
+                    <span className={`badge ${a.status === 'COMPLETE' ? 'badge-success' : a.status === 'ARRIVED' ? 'badge-warning' : 'badge-primary'}`}>
+                      {a.status}
+                    </span>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         )}
       </div>

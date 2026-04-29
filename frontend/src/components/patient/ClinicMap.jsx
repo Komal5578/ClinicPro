@@ -95,25 +95,18 @@ const ClinicMap = ({ clinics = [], sectorFilter, onClinicSelect, routeTarget, us
   const userMarkerRef = useRef(null);
 
   const getFilteredClinics = useMemo(() => {
-    const radiusKm = 25;
+    const hasSearch = !!(search && search.trim());
     return clinics.filter((clinic) => {
       if (!clinic.latitude || !clinic.longitude) return false;
 
       const matchesSector = !sectorFilter || sectorFilter === 'ALL'
         || (clinic.sector || '').toUpperCase() === sectorFilter;
 
-      const matchesSearch = !search
+      const matchesSearch = !hasSearch
         || clinic.clinic_name?.toLowerCase().includes(search.toLowerCase())
         || clinic.address?.toLowerCase().includes(search.toLowerCase());
 
-      const dist = getDistance(
-        userLocation.lat,
-        userLocation.lng,
-        parseFloat(clinic.latitude),
-        parseFloat(clinic.longitude),
-      );
-
-      return dist <= radiusKm && matchesSector && matchesSearch;
+      return matchesSector && matchesSearch;
     });
   }, [clinics, sectorFilter, search, userLocation]);
 
@@ -371,7 +364,7 @@ const ClinicMap = ({ clinics = [], sectorFilter, onClinicSelect, routeTarget, us
           borderRadius: 8, fontSize: 12.5, fontWeight: 600,
           color: getColor(sectorFilter),
         }}>
-          Showing {filteredCount} {sectorFilter.toLowerCase()} clinic{filteredCount !== 1 ? 's' : ''} near you
+          Showing {filteredCount} {sectorFilter.toLowerCase()} clinic{filteredCount !== 1 ? 's' : ''}
         </div>
       )}
 

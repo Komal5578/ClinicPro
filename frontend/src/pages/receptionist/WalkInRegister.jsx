@@ -4,9 +4,9 @@ import { searchPatient, registerPatient, registerWalkIn, getTodayWalkIns, update
 import { useAuth } from '../../context/AuthContext';
 
 const WalkInRegister = () => {
-  const { user } = useAuth();
-  const clinic_id = user?.clinic_id || 1;
-  const doctor_id = 1;
+  const { user, selectedClinicId } = useAuth();
+  const clinic_id = selectedClinicId || user?.clinic_id || 1;
+  const doctor_id = user?.id || 1;
 
   const [phone, setPhone] = useState('');
   const [patient, setPatient] = useState(null);

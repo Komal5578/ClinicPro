@@ -1,0 +1,21 @@
+USE clinic_db;
+
+ALTER TABLE Clinic
+  ADD COLUMN IF NOT EXISTS is_delayed BOOLEAN DEFAULT FALSE,
+  ADD COLUMN IF NOT EXISTS delay_minutes INT DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS delay_message VARCHAR(255),
+  ADD COLUMN IF NOT EXISTS delay_announced_at TIMESTAMP NULL;
+
+ALTER TABLE Slot
+  ADD COLUMN IF NOT EXISTS token_number INT NOT NULL DEFAULT 1;
+
+CREATE TABLE IF NOT EXISTS ClinicDailyAvailability (
+  availability_id INT AUTO_INCREMENT PRIMARY KEY,
+  clinic_id INT NOT NULL,
+  available_date DATE NOT NULL,
+  is_available BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uniq_clinic_day (clinic_id, available_date),
+  FOREIGN KEY (clinic_id) REFERENCES Clinic(clinic_id)
+);

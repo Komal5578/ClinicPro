@@ -6,6 +6,7 @@ const { authorizeRoles } = require('../middleware/role.middleware');
 
 // Public route for patient portal (no auth needed)
 router.get('/search/public', searchPatient);
+router.post('/register/public', registerPatient);
 
 // Authenticated routes for staff
 router.get('/search', authenticate, authorizeRoles('doctor', 'receptionist'), searchPatient);

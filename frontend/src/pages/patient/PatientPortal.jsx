@@ -4,7 +4,7 @@ import ClinicMap from '../../components/patient/ClinicMap';
 import SymptomChatbot from '../../components/patient/SymptomChatbot';
 import MedicineCheck from '../../components/patient/MedicineCheck';
 import PrescriptionDrawer from '../../components/patient/PrescriptionDrawer';
-import { getPublicClinics, getNearbyClinics } from '../../services/api';
+import { getPublicClinics } from '../../services/api';
 
 
 const PatientPortal = () => {
@@ -30,18 +30,18 @@ const PatientPortal = () => {
         const lat = position.coords.latitude;
         const lng = position.coords.longitude;
         setUserLocation({ lat, lng, accuracy: position.coords.accuracy });
-        setLocationStatus('Showing clinics near your current location.');
+          setLocationStatus('Showing all clinics from the database on the map.');
 
         try {
-          const res = await getNearbyClinics(lat, lng, 25);
-          setClinics(res.data || []);
-        } catch (err) {
-          console.error('Failed to fetch nearby clinics:', err);
+          // Do not replace the full clinics list with nearby-only results.
+          // We keep the master list from fetchClinics() so search can match across all clinics.
           await fetchClinics();
+        } catch (err) {
+          console.error('Failed to refresh clinics:', err);
         }
       },
       async () => {
-        setLocationStatus('Location permission was denied, showing all clinics.');
+        setLocationStatus('Location permission was denied, but all clinics are still shown from the database.');
       },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
     );

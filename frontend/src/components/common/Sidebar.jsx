@@ -1,8 +1,12 @@
+import { useEffect, useMemo } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { getDoctorClinics } from '../../services/api';
 
 const doctorLinks = [
   { to: '/doctor/queue', icon: '', label: 'Queue' },
+  { to: '/doctor/setup-slots', icon: '', label: 'Tomorrow\'s Slots' },
+  { to: '/doctor/staff', icon: '', label: 'Manage Staff' },
   { to: '/doctor/followup', icon: '', label: 'Follow-ups' },
   { to: '/doctor/analytics', icon: '', label: 'Analytics' },
 ];
@@ -16,8 +20,35 @@ const receptionistLinks = [
 ];
 
 const Sidebar = () => {
-  const { user, logout } = useAuth();
+  const {
+    user,
+    logout,
+    selectedClinicId,
+    setSelectedClinicId,
+    doctorClinics,
+    setDoctorClinics,
+  } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const loadClinics = async () => {
+      if (user?.role !== 'doctor') return;
+      try {
+        const res = await getDoctorClinics();
+        const clinics = res.data || [];
+        setDoctorClinics(clinics);
+        if (!selectedClinicId && clinics.length > 0) {
+          const firstClinicId = clinics[0].clinic_id;
+          setSelectedClinicId(firstClinicId);
+          localStorage.setItem('selected_clinic_id', String(firstClinicId));
+        }
+      } catch (err) {
+        console.error('Failed to load doctor clinics', err);
+      }
+    };
+
+    loadClinics();
+  }, [user?.role]);
 
   const handleLogout = () => {
     logout();
@@ -26,14 +57,44 @@ const Sidebar = () => {
 
   const links = user?.role === 'doctor' ? doctorLinks : receptionistLinks;
   const initial = user?.name?.[0]?.toUpperCase() || '?';
+  const currentClinic = useMemo(() => {
+    if (user?.role !== 'doctor') return null;
+    return doctorClinics.find(c => String(c.clinic_id) === String(selectedClinicId)) || doctorClinics[0] || null;
+  }, [doctorClinics, selectedClinicId, user?.role]);
 
   return (
     <div className="sidebar">
       {/* Logo */}
       <div className="sidebar-logo">
         <h1>Clinic<span>Pro</span></h1>
-        <div className="sidebar-role">
-          {user?.role === 'doctor' ? '🩺 Doctor Portal' : ' Reception Portal'}
+        <div className="sidebar-role" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <span>{user?.role === 'doctor' ? '🩺 Doctor Portal' : ' Reception Portal'}</span>
+          {user?.role === 'doctor' && currentClinic && (
+            doctorClinics.length > 1 ? (
+              <select
+                value={selectedClinicId || currentClinic.clinic_id}
+                onChange={(e) => {
+                  setSelectedClinicId(Number(e.target.value));
+                  localStorage.setItem('selected_clinic_id', e.target.value);
+                }}
+                style={{
+                  marginTop: 4, padding: '6px 10px', borderRadius: 10,
+                  border: '1px solid #dbe4ee', background: '#fff', color: '#0f172a',
+                  fontSize: 12, fontWeight: 700, cursor: 'pointer', width: '100%',
+                }}
+              >
+                {doctorClinics.map((clinic) => (
+                  <option key={clinic.clinic_id} value={clinic.clinic_id}>
+                    📍 {clinic.clinic_name}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <div style={{ marginTop: 4, fontSize: 12, color: '#334155', fontWeight: 700 }}>
+                📍 {currentClinic.clinic_name}
+              </div>
+            )
+          )}
         </div>
       </div>
 

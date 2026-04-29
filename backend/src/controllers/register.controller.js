@@ -1,5 +1,6 @@
 const db = require('../config/db');
 const bcrypt = require('bcryptjs');
+const { geocodeAddress } = require('../utils/geocode');
 
 const registerDoctor = async (req, res) => {
   const body = req.body || {};
@@ -23,7 +24,7 @@ const registerDoctor = async (req, res) => {
     const [doctorResult] = await db.query(
       `INSERT INTO Doctor (name, email, phone, password_hash, specialization, registration_no, sector, registration_type, nmc_verified)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [name, email, phone, password_hash, sector, registrationNumber, sector, registrationType, true]
+      [name, email, phone, password_hash, sector, registrationNumber, sector, registrationType, false]
     );
     const doctor_id = doctorResult.insertId;
 
@@ -37,18 +38,22 @@ const registerDoctor = async (req, res) => {
     if (existingClinic.length > 0) {
       clinic_id = existingClinic[0].clinic_id;
 
+      const coords = await geocodeAddress(address);
+
       await db.query(
         `UPDATE Clinic
-         SET doctor_id = ?, clinic_name = ?, address = ?, sector = ?, morning_start = ?, morning_end = ?, evening_start = ?, evening_end = ?, booked_slot_duration = ?
+         SET doctor_id = ?, clinic_name = ?, address = ?, sector = ?, morning_start = ?, morning_end = ?, evening_start = ?, evening_end = ?, booked_slot_duration = ?, latitude = ?, longitude = ?
          WHERE clinic_id = ?`,
-        [doctor_id, clinic_name, address, sector, morningStart, morningEnd, eveningStart, eveningEnd, slotDuration || 20, clinic_id]
+        [doctor_id, clinic_name, address, sector, morningStart, morningEnd, eveningStart, eveningEnd, slotDuration || 20, coords?.lat || null, coords?.lng || null, clinic_id]
       );
     } else {
       // Insert Clinic
+      const coords = await geocodeAddress(address);
+
       const [clinicResult] = await db.query(
-        `INSERT INTO Clinic (doctor_id, clinic_name, address, gst_number, sector, morning_start, morning_end, evening_start, evening_end, booked_slot_duration)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [doctor_id, clinic_name, address, normalizedGst, sector, morningStart, morningEnd, eveningStart, eveningEnd, slotDuration || 20]
+        `INSERT INTO Clinic (doctor_id, clinic_name, address, gst_number, sector, morning_start, morning_end, evening_start, evening_end, booked_slot_duration, latitude, longitude)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [doctor_id, clinic_name, address, normalizedGst, sector, morningStart, morningEnd, eveningStart, eveningEnd, slotDuration || 20, coords?.lat || null, coords?.lng || null]
       );
       clinic_id = clinicResult.insertId;
     }

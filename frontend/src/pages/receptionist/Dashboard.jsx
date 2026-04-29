@@ -5,9 +5,9 @@ import { getTodayWalkIns, getTodayAppointments } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 
 const Dashboard = () => {
-  const { user } = useAuth();
+  const { user, selectedClinicId } = useAuth();
   const navigate = useNavigate();
-  const clinic_id = user?.clinic_id || 1;
+  const clinic_id = selectedClinicId || user?.clinic_id || 1;
   const [walkIns, setWalkIns] = useState([]);
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);

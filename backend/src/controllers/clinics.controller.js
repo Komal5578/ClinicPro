@@ -15,7 +15,6 @@ const getPublicClinics = async (req, res) => {
     console.log('Clinics fetched:', rows.length);
     res.json(rows);
   } catch (err) {
-    console.error('getPublicClinics ERROR:', err.message);
     res.status(500).json({ message: 'Server error', error: err.message });
   }
 };
@@ -44,11 +43,6 @@ const getNearbyClinics = async (req, res) => {
   }
 };
 
-<<<<<<< Updated upstream
-module.exports = { getPublicClinics, getNearbyClinics };
-=======
-module.exports = { getPublicClinics, getNearbyClinics };
-
 const getRecentClinics = async (req, res) => {
   const limit = parseInt(req.query.limit, 10) || 20;
   try {
@@ -68,5 +62,38 @@ const getRecentClinics = async (req, res) => {
   }
 };
 
-module.exports = { getPublicClinics, getNearbyClinics, getRecentClinics };
->>>>>>> Stashed changes
+const getPublicSlots = async (req, res) => {
+  const { clinic_id, date } = req.query;
+  if (!clinic_id) return res.status(400).json({ message: 'clinic_id is required' });
+  const slotDate = date || new Date().toISOString().split('T')[0];
+  try {
+    const [rows] = await db.query(
+      `SELECT slot_id, clinic_id, slot_date, slot_start_time, slot_type, status, token_number
+       FROM Slot
+       WHERE clinic_id = ? AND slot_date = ?
+       ORDER BY slot_start_time ASC`,
+      [clinic_id, slotDate]
+    );
+    res.json(rows);
+  } catch (err) {
+    console.error('getPublicSlots ERROR:', err.message);
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+};
+
+const getClinicStatus = async (req, res) => {
+  const clinic_id = req.params.clinic_id || req.query.clinic_id;
+  if (!clinic_id) return res.status(400).json({ message: 'clinic_id is required' });
+  try {
+    const [rows] = await db.query(
+      `SELECT is_delayed, delay_minutes, delay_message, delay_announced_at
+       FROM Clinic WHERE clinic_id = ?`,
+      [clinic_id]
+    );
+    res.json(rows[0] || { is_delayed: false, delay_minutes: 0, delay_message: null, delay_announced_at: null });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+};
+
+module.exports = { getPublicClinics, getNearbyClinics, getRecentClinics, getPublicSlots, getClinicStatus };

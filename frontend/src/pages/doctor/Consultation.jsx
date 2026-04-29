@@ -7,8 +7,9 @@ import { useAuth } from '../../context/AuthContext';
 const Consultation = () => {
   const { patient_id } = useParams();
    console.log("patient_id:", patient_id);
-  const { user } = useAuth();
+  const { user, selectedClinicId } = useAuth();
   const navigate = useNavigate();
+  const clinic_id = selectedClinicId || user?.clinic_id || 1;
 
   const [form, setForm] = useState({
     chief_complaint: '',
@@ -53,7 +54,7 @@ const Consultation = () => {
         ...form,
         patient_id,
         doctor_id: user.id,
-        clinic_id: user.clinic_id || 1,
+        clinic_id,
       });
       setConsultationId(res.data.consultation_id);
       setSuccess('Consultation saved!');

@@ -4,8 +4,8 @@ import { getTodayAppointments, getTodayWalkIns } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 
 const Analytics = () => {
-  const { user } = useAuth();
-  const clinic_id = user?.clinic_id || 1;
+  const { user, selectedClinicId } = useAuth();
+  const clinic_id = selectedClinicId || user?.clinic_id || 1;
   const [appointments, setAppointments] = useState([]);
   const [walkIns, setWalkIns] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -26,7 +26,7 @@ const Analytics = () => {
       }
     };
     fetchData();
-  }, []);
+  }, [clinic_id]);
 
   const total = appointments.length + walkIns.length;
   const completed = [

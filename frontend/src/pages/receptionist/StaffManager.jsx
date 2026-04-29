@@ -1,13 +1,16 @@
 import { useState, useEffect } from 'react';
 import Sidebar from '../../components/common/Sidebar';
 import { getAllStaff, addStaff, getInventory, getLowStock, addInventoryItem, updateStock } from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
 
 const StaffManager = () => {
+  const { user, selectedClinicId } = useAuth();
+  const isDoctor = user?.role === 'doctor';
   const [tab, setTab] = useState('staff');
   const [staff, setStaff] = useState([]);
   const [inventory, setInventory] = useState([]);
   const [lowStock, setLowStock] = useState([]);
-  const [staffForm, setStaffForm] = useState({ name: '', phone: '', role: 'RECEPTIONIST' });
+  const [staffForm, setStaffForm] = useState({ name: '', phone: '', email: '', password: '', role: 'RECEPTIONIST' });
   const [invForm, setInvForm] = useState({ category_id: 1, item_name: '', quantity: '', threshold_quantity: 10, unit: 'units' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -15,7 +18,9 @@ const StaffManager = () => {
 
   const fetchAll = async () => {
     try {
-      const [s, inv, ls] = await Promise.all([getAllStaff(), getInventory(), getLowStock()]);
+      const [s, inv, ls] = isDoctor
+        ? await Promise.all([getAllStaff(selectedClinicId), Promise.resolve({ data: [] }), Promise.resolve({ data: [] })])
+        : await Promise.all([getAllStaff(selectedClinicId), getInventory(), getLowStock()]);
       setStaff(s.data);
       setInventory(inv.data);
       setLowStock(ls.data);
@@ -28,9 +33,9 @@ const StaffManager = () => {
     e.preventDefault();
     setLoading(true); setError(''); setSuccess('');
     try {
-      await addStaff(staffForm);
+      await addStaff({ ...staffForm, clinic_id: selectedClinicId });
       setSuccess('Staff member added!');
-      setStaffForm({ name: '', phone: '', role: 'RECEPTIONIST' });
+      setStaffForm({ name: '', phone: '', email: '', password: '', role: 'RECEPTIONIST' });
       fetchAll();
     } catch (err) { setError(err.response?.data?.message || 'Failed to add staff'); }
     finally { setLoading(false); }
@@ -60,28 +65,29 @@ const StaffManager = () => {
       <Sidebar />
       <div className="main-content">
         <div className="page-header">
-          <h2> Staff & Inventory</h2>
-          <p>Manage clinic staff and inventory</p>
+          <h2>{isDoctor ? 'Manage Staff' : 'Staff & Inventory'}</h2>
+          <p>{isDoctor ? 'Add receptionists for the selected clinic' : 'Manage clinic staff and inventory'}</p>
         </div>
 
-        {/* Tabs */}
-        <div style={{ display: 'flex', gap: 8, marginBottom: 24 }}>
-          {['staff', 'inventory'].map(t => (
-            <button key={t} className={`btn ${tab === t ? 'btn-primary' : 'btn-outline'}`}
-              onClick={() => { setTab(t); setError(''); setSuccess(''); }}>
-              {t === 'staff' ? ' Staff' : ` Inventory ${lowStock.length > 0 ? `(${lowStock.length} low)` : ''}`}
-            </button>
-          ))}
-        </div>
+        {!isDoctor && (
+          <div style={{ display: 'flex', gap: 8, marginBottom: 24 }}>
+            {['staff', 'inventory'].map(t => (
+              <button key={t} className={`btn ${tab === t ? 'btn-primary' : 'btn-outline'}`}
+                onClick={() => { setTab(t); setError(''); setSuccess(''); }}>
+                {t === 'staff' ? ' Staff' : ` Inventory ${lowStock.length > 0 ? `(${lowStock.length} low)` : ''}`}
+              </button>
+            ))}
+          </div>
+        )}
 
         {error && <div className="alert alert-danger">{error}</div>}
         {success && <div className="alert alert-success">{success}</div>}
 
-        {tab === 'staff' && (
+        {(isDoctor || tab === 'staff') && (
           <div className="grid-2">
             {/* Add Staff */}
             <div className="card">
-              <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 16 }}>Add Staff Member</h3>
+              <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 16 }}>Add Receptionist</h3>
               <form onSubmit={handleAddStaff}>
                 <div className="form-group">
                   <label className="form-label">Full Name *</label>
@@ -94,12 +100,14 @@ const StaffManager = () => {
                     onChange={e => setStaffForm(f => ({ ...f, phone: e.target.value }))} required />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Role</label>
-                  <select className="form-select" value={staffForm.role}
-                    onChange={e => setStaffForm(f => ({ ...f, role: e.target.value }))}>
-                    <option value="RECEPTIONIST">Receptionist</option>
-                    <option value="ADMIN">Admin</option>
-                  </select>
+                  <label className="form-label">Email *</label>
+                  <input className="form-input" placeholder="staff@clinic.com" value={staffForm.email}
+                    onChange={e => setStaffForm(f => ({ ...f, email: e.target.value }))} required />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Password *</label>
+                  <input className="form-input" type="password" placeholder="Set password" value={staffForm.password}
+                    onChange={e => setStaffForm(f => ({ ...f, password: e.target.value }))} required />
                 </div>
                 <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={loading}>
                   {loading ? 'Adding...' : '+ Add Staff'}
@@ -130,7 +138,7 @@ const StaffManager = () => {
           </div>
         )}
 
-        {tab === 'inventory' && (
+        {!isDoctor && tab === 'inventory' && (
           <div className="grid-2">
             {/* Add Item */}
             <div className="card">

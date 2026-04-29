@@ -7,6 +7,18 @@ CREATE TABLE Slot (
   slot_start_time TIME NOT NULL,
   slot_type   ENUM('BOOKED', 'WALKIN', 'BUFFER') NOT NULL,
   status      ENUM('OPEN', 'BOOKED', 'CLOSED') DEFAULT 'OPEN',
+  token_number INT NOT NULL,
+  FOREIGN KEY (clinic_id) REFERENCES Clinic(clinic_id)
+);
+
+CREATE TABLE ClinicDailyAvailability (
+  availability_id INT AUTO_INCREMENT PRIMARY KEY,
+  clinic_id INT NOT NULL,
+  available_date DATE NOT NULL,
+  is_available BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uniq_clinic_day (clinic_id, available_date),
   FOREIGN KEY (clinic_id) REFERENCES Clinic(clinic_id)
 );
 

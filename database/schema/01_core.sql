@@ -42,6 +42,10 @@ CREATE TABLE Clinic (
   evening_end       TIME,
   booked_slot_duration  INT DEFAULT 20,
   buffer_duration   INT DEFAULT 15,
+  is_delayed        BOOLEAN DEFAULT FALSE,
+  delay_minutes     INT DEFAULT 0,
+  delay_message     VARCHAR(255),
+  delay_announced_at TIMESTAMP NULL,
   FOREIGN KEY (doctor_id) REFERENCES Doctor(doctor_id)
 );
 

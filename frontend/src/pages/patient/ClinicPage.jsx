@@ -1,7 +1,14 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import ClinicMap from '../../components/patient/ClinicMap';
-import { getClinicStatus, getTodaySlots, searchPatientPublic, registerPatient, bookAppointment, getPublicClinics } from '../../services/api';
+import { getClinicStatus, getPublicSlots, searchPatientPublic, registerPatient, bookAppointmentPublic, getPublicClinics } from '../../services/api';
+
+const formatDateInput = (value = new Date()) => {
+  const year = value.getFullYear();
+  const month = String(value.getMonth() + 1).padStart(2, '0');
+  const day = String(value.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
 
 const ClinicPage = () => {
   const { clinicId } = useParams();
@@ -9,6 +16,7 @@ const ClinicPage = () => {
   const [clinic, setClinic] = useState(null);
   const [slots, setSlots] = useState([]);
   const [clinicStatus, setClinicStatus] = useState({ doctor_status: 'ON_TIME', delay_message: null });
+  const [selectedDate, setSelectedDate] = useState(formatDateInput());
 
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
@@ -36,13 +44,13 @@ const ClinicPage = () => {
     let cancelled = false;
     const load = async () => {
       try {
-        const s = await getTodaySlots(clinicId);
+        const s = await getPublicSlots(clinicId, selectedDate);
         if (!cancelled) setSlots(s.data || []);
       } catch (err) { console.error(err); if (!cancelled) setSlots([]); }
     };
     load();
     return () => { cancelled = true; };
-  }, [clinicId]);
+  }, [clinicId, selectedDate]);
 
   useEffect(() => {
     if (!clinicId) return;
@@ -70,10 +78,10 @@ const ClinicPage = () => {
         const reg = await registerPatient({ name, phone });
         patientId = reg.data.patient_id;
       }
-      await bookAppointment({ slot_id: selectedSlot, patient_id: patientId, clinic_id: clinicId });
+      await bookAppointmentPublic({ slot_id: selectedSlot, patient_id: patientId, clinic_id: clinicId });
       setSuccess('Appointment booked — check your phone for confirmation');
       setName(''); setPhone(''); setSelectedSlot(null);
-      const refreshed = await getTodaySlots(clinicId);
+      const refreshed = await getPublicSlots(clinicId, selectedDate);
       setSlots(refreshed.data || []);
     } catch (err) {
       console.error(err);
@@ -110,9 +118,20 @@ const ClinicPage = () => {
           )}
 
           <div style={{ background: 'white', padding: 14, borderRadius: 10, border: '1px solid #eef2f7' }}>
-            <div style={{ fontWeight: 800, marginBottom: 8 }}>Available slots</div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', marginBottom: 12 }}>
+              <div style={{ fontWeight: 800 }}>Available slots</div>
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={(e) => {
+                  setSelectedDate(e.target.value);
+                  setSelectedSlot(null);
+                }}
+                style={{ padding: '7px 10px', borderRadius: 8, border: '1px solid #e6eef6', background: 'white' }}
+              />
+            </div>
             {slots.filter(s => s.status === 'OPEN').length === 0 ? (
-              <div style={{ color: '#94a3b8' }}>No slots available today</div>
+              <div style={{ color: '#94a3b8' }}>No slots available for this date</div>
             ) : (
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
                 {slots.filter(s => s.status === 'OPEN').map(s => (

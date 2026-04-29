@@ -22,19 +22,24 @@ export const verifyPatientOtp = (phone, otp) => api.post('/auth/verify-otp', { p
 // Patients
 export const searchPatient = (phone) => api.get(`/patients/search?phone=${phone}`);
 export const searchPatientPublic = (phone) => api.get(`/patients/search/public?phone=${phone}`);
-export const registerPatient = (data) => api.post('/patients/register', data);
+export const registerPatient = (data) => api.post('/patients/register/public', data);
 
 // Doctor
 export const getDoctorProfile = () => api.get('/doctors/profile');
+export const getDoctorClinics = () => api.get('/doctors/clinics');
 export const getTodaySlots = (clinic_id) => api.get(`/doctors/slots/today?clinic_id=${clinic_id}`);
-export const generateSlots = (data) => api.post('/doctors/slots/generate', data);
+export const generateSlots = (data) => api.post('/slots/generate', data);
 export const setDoctorStatus = (data) => api.post('/doctors/status', data);
 export const insertUrgentPatient = (data) => api.post('/doctors/urgent', data);
-export const getClinicStatus = (clinic_id) => api.get(`/doctors/clinic-status?clinic_id=${clinic_id}`);
+export const getClinicStatus = (clinic_id) => api.get(`/clinics/${clinic_id}/status`);
+export const announceDelay = (data) => api.post('/appointments/announce-delay', data);
+export const clearDelay = (data) => api.post('/appointments/clear-delay', data);
 
 // Appointments
 export const getTodayAppointments = (clinic_id) => api.get(`/appointments/today?clinic_id=${clinic_id}`);
+export const getUpcomingAppointments = (clinic_id) => api.get(`/appointments/upcoming?clinic_id=${clinic_id}`);
 export const bookAppointment = (data) => api.post('/appointments/book', data);
+export const bookAppointmentPublic = (data) => api.post('/appointments/book/public', data);
 
 // Walk-ins
 export const registerWalkIn = (data) => api.post('/walkins/register', data);
@@ -60,12 +65,17 @@ export const addInventoryItem = (data) => api.post('/inventory/add', data);
 export const updateStock = (item_id, quantity) => api.patch(`/inventory/${item_id}/stock`, { quantity });
 
 // Staff
-export const getAllStaff = () => api.get('/staff');
+export const getAllStaff = (clinic_id) => api.get('/staff', { params: { clinic_id } });
 export const addStaff = (data) => api.post('/staff/add', data);
 
 // Clinics (public)
 export const getPublicClinics = () => api.get('/clinics/public');
 export const getNearbyClinics = (lat, lng, radius = 10) => api.get(`/clinics/public/nearby?lat=${lat}&lng=${lng}&radius=${radius}`);
+export const getPublicSlots = (clinic_id, date) => {
+  const dateQuery = date ? `&date=${date}` : '';
+  return api.get(`/clinics/public/slots/today?clinic_id=${clinic_id}${dateQuery}`);
+};
+export const getPublicClinicStatus = (clinic_id) => api.get(`/clinics/${clinic_id}/status`);
 
 // GST Verification
 export const verifyGst = (gst_number) => api.post('/gst/verify', { gst_number });

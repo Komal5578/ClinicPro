@@ -17,6 +17,25 @@ const getDoctorProfile = async (req, res) => {
   }
 };
 
+const getDoctorClinics = async (req, res) => {
+  const doctor_id = req.user.id;
+  try {
+    const [rows] = await db.query(
+      `SELECT c.clinic_id, c.clinic_name, c.address, c.sector, c.gst_number,
+              c.morning_start, c.morning_end, c.evening_start, c.evening_end,
+              c.booked_slot_duration, c.buffer_duration
+       FROM DoctorClinic dc
+       JOIN Clinic c ON c.clinic_id = dc.clinic_id
+       WHERE dc.doctor_id = ?
+       ORDER BY c.clinic_name ASC`,
+      [doctor_id]
+    );
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+};
+
 // Get today's slots
 const getTodaySlots = async (req, res) => {
   const { clinic_id } = req.query;
@@ -25,7 +44,8 @@ const getTodaySlots = async (req, res) => {
   }
   try {
     const [rows] = await db.query(
-      `SELECT * FROM Slot 
+      `SELECT slot_id, clinic_id, slot_date, slot_start_time, slot_type, status, token_number
+       FROM Slot
        WHERE clinic_id = ? AND slot_date = CURDATE()
        ORDER BY slot_start_time ASC`,
       [clinic_id]
@@ -76,8 +96,13 @@ const setDoctorStatus = async (req, res) => {
   }
   try {
     await db.query(
-      'UPDATE Clinic SET doctor_status = ?, delay_message = ? WHERE clinic_id = ?',
-      [status, message || null, clinic_id]
+      `UPDATE Clinic
+       SET is_delayed = ?,
+           delay_minutes = ?,
+           delay_message = ?,
+           delay_announced_at = ?
+       WHERE clinic_id = ?`,
+      [status === 'DELAYED', status === 'DELAYED' ? 15 : 0, message || null, status === 'DELAYED' ? new Date() : null, clinic_id]
     );
     res.json({ success: true });
   } catch (err) {
@@ -116,11 +141,11 @@ const getClinicStatus = async (req, res) => {
   }
   try {
     const [rows] = await db.query(
-      'SELECT doctor_status, delay_message FROM Clinic WHERE clinic_id = ?',
+      'SELECT is_delayed, delay_minutes, delay_message, delay_announced_at FROM Clinic WHERE clinic_id = ?',
       [clinic_id]
     );
 
-    res.json(rows[0] || { doctor_status: 'ON_TIME', delay_message: null });
+    res.json(rows[0] || { is_delayed: false, delay_minutes: 0, delay_message: null, delay_announced_at: null });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -128,8 +153,8 @@ const getClinicStatus = async (req, res) => {
 
 module.exports = {
   getDoctorProfile,
+  getDoctorClinics,
   getTodaySlots,
-  generateSlots,
   setDoctorStatus,
   insertUrgentPatient,
   getClinicStatus,

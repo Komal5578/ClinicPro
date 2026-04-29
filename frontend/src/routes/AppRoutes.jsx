@@ -16,6 +16,8 @@ import Consultation from '../pages/doctor/Consultation';
 import Prescription from '../pages/doctor/Prescription';
 import Analytics from '../pages/doctor/Analytics';
 import FollowUp from '../pages/doctor/FollowUp';
+import DoctorSetupSlots from '../pages/doctor/SetupSlots';
+import DoctorManageStaff from '../pages/doctor/ManageStaff';
 
 
 // Receptionist pages
@@ -70,6 +72,12 @@ const AppRoutes = () => {
       } />
       <Route path="/doctor/followup" element={
         <ProtectedRoute allowedRoles={['doctor']}><FollowUp /></ProtectedRoute>
+      } />
+      <Route path="/doctor/setup-slots" element={
+        <ProtectedRoute allowedRoles={['doctor']}><DoctorSetupSlots /></ProtectedRoute>
+      } />
+      <Route path="/doctor/staff" element={
+        <ProtectedRoute allowedRoles={['doctor']}><DoctorManageStaff /></ProtectedRoute>
       } />
 
       {/* Receptionist routes */}

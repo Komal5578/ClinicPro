@@ -2,7 +2,10 @@ const db = require('../config/db');
 const bcrypt = require('bcryptjs');
 
 const getAllStaff = async (req, res) => {
-  const clinic_id = req.user.clinic_id;  // from token
+  const clinic_id = req.query.clinic_id || req.user.clinic_id;  // selected clinic or token clinic
+  if (!clinic_id) {
+    return res.status(400).json({ message: 'clinic_id is required' });
+  }
   try {
     const [rows] = await db.query(
       `SELECT staff_id, clinic_id, name, phone, email, role, approval_status, created_at 
@@ -16,8 +19,11 @@ const getAllStaff = async (req, res) => {
 };
 
 const addStaff = async (req, res) => {
-  const clinic_id = req.user.clinic_id;  // from token
+  const clinic_id = req.body.clinic_id || req.user.clinic_id;  // selected clinic or token clinic
   const { name, phone, email, role, password } = req.body;
+  if (!clinic_id) {
+    return res.status(400).json({ message: 'clinic_id is required' });
+  }
   try {
     // Use provided password or default to '123456'
     const rawPassword = password || '123456';
