@@ -4,17 +4,45 @@ const db = require('../config/db');
 const getTodayAppointments = async (req, res) => {
   const { clinic_id } = req.query;
   try {
-    const [rows] = await db.query(
-      `SELECT a.appointment_id, a.status, a.booked_at,
-              p.name as patient_name, p.phone, p.age,
-              s.slot_start_time, s.slot_date, s.slot_type, s.token_number
-       FROM Appointment a
-       JOIN Patient p ON a.patient_id = p.patient_id
-       JOIN Slot s ON a.slot_id = s.slot_id
-       WHERE a.clinic_id = ? AND s.slot_date = CURDATE()
-       ORDER BY s.token_number ASC, s.slot_start_time ASC`,
-      [clinic_id]
-    );
+    const supabase = require('../config/supabase');
+    
+    const { data: appointments, error } = await supabase
+      .from('appointment')
+      .select(`
+        appointment_id,
+        status,
+        booked_at,
+        patient:patient_id (
+          name,
+          phone,
+          age
+        ),
+        slot:slot_id (
+          slot_start_time,
+          slot_date,
+          slot_type,
+          token_number
+        )
+      `)
+      .eq('clinic_id', clinic_id)
+      .eq('slot.slot_date', 'today');  // Note: use RPC or CURRENT_DATE for dynamic
+
+    if (error) throw error;
+
+    // Transform for frontend
+    const rows = appointments.map(appt => ({
+      appointment_id: appt.appointment_id,
+      status: appt.status,
+      booked_at: appt.booked_at,
+      patient_name: appt.patient.name,
+      phone: appt.patient.phone,
+      age: appt.patient.age,
+      slot_start_time: appt.slot.slot_start_time,
+      slot_date: appt.slot.slot_date,
+      slot_type: appt.slot.slot_type,
+      token_number: appt.slot.token_number
+    })).sort((a, b) => a.token_number - b.token_number);
+
     res.json(rows);
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });

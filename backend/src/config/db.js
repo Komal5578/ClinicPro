@@ -351,16 +351,111 @@ const db = {
     return [[], []];
   },
 
-  async generateSlots(params) {
-    // This is a placeholder - implement actual logic
-    console.warn('generate_slots stored procedure called with params:', params);
-    return [[], []];
+async generateSlots(params) {
+    const { clinic_id, date, morning_start, morning_end, evening_start, evening_end, booked_duration = 20, walkin_duration = 15, walkin_to_booked_ratio = 3 } = params[0] || {};
+    
+    if (!clinic_id || !date) return [[{ message: 'clinic_id and date required' }], []];
+
+    try {
+      // Get clinic times
+      const { data: clinic } = await supabase.from('clinic').select('morning_start, morning_end, evening_start, evening_end').eq('clinic_id', clinic_id).single();
+      if (!clinic) return [[{ error: 'Clinic not found' }], []];
+
+      // Build pattern
+      const pattern = [];
+      for (let i = 0; i < walkin_to_booked_ratio; i++) pattern.push('BOOKED');
+      pattern.push('BUFFER');
+
+      // Simple slot generation (20min slots)
+      let token = 1;
+      const slots = [];
+      
+      // Morning
+      let currentTime = parseTime(morning_start || clinic.morning_start || '09:00');
+      const morningEnd = parseTime(morning_end || clinic.morning_end || '13:00');
+      while (currentTime < morningEnd) {
+        const slotType = pattern[token % pattern.length];
+        slots.push({
+          clinic_id,
+          slot_date: date,
+          slot_start_time: formatTime(currentTime),
+          slot_type: slotType,
+          status: 'OPEN',
+          token_number: token++
+        });
+        currentTime += slotType === 'BUFFER' ? walkin_duration : booked_duration;
+      }
+
+      // Evening if defined
+      if (evening_start && evening_end) {
+        currentTime = parseTime(evening_start);
+        const eveningEnd = parseTime(evening_end);
+        while (currentTime < eveningEnd) {
+          const slotType = pattern[token % pattern.length];
+          slots.push({
+            clinic_id,
+            slot_date: date,
+            slot_start_time: formatTime(currentTime),
+            slot_type: slotType,
+            status: 'OPEN',
+            token_number: token++
+          });
+          currentTime += slotType === 'BUFFER' ? walkin_duration : booked_duration;
+        }
+      }
+
+      // Delete old slots
+      await supabase.from('slot').delete().eq('clinic_id', clinic_id).eq('slot_date', date);
+      
+      // Insert new
+      await supabase.from('slot').insert(slots);
+
+      // Update availability
+      await supabase.from('clinic_daily_availability').upsert({ clinic_id, available_date: date, is_available: true });
+
+      return [slots, []];
+    } catch (err) {
+      return [[{ error: err.message }], []];
+    }
   },
 
   async bookAppointment(params) {
-    // This is a placeholder - implement actual logic
-    console.warn('book_appointment stored procedure called with params:', params);
-    return [[], []];
+    const [slot_id, patient_id, doctor_id, clinic_id] = params;
+    if (!slot_id || !patient_id || !doctor_id || !clinic_id) return [[{ message: 'All params required' }], []];
+
+    try {
+      // Check slot available
+      const { data: slot } = await supabase.from('slot').select('*').eq('slot_id', slot_id).eq('clinic_id', clinic_id).single();
+      if (!slot || slot.status !== 'OPEN') return [[{ message: 'Slot not available' }], []];
+
+      // Insert appointment
+      const { data: appt } = await supabase.from('appointment').insert({
+        slot_id,
+        patient_id,
+        doctor_id,
+        clinic_id,
+        status: 'SCHEDULED'
+      }).select().single();
+
+      // Update slot to BOOKED
+      await supabase.from('slot').update({ status: 'BOOKED' }).eq('slot_id', slot_id);
+
+      return [{ appointment_id: appt.appointment_id, message: 'SUCCESS' }, []];
+    } catch (err) {
+      return [[{ message: err.message }], []];
+    }
+  },
+
+  // Helper functions
+  parseTime(timeStr) {
+    const [h, m] = timeStr.split(':').map(Number);
+    return h * 60 + m;
+  },
+
+  formatTime(minutes) {
+    const h = Math.floor(minutes / 60);
+    const m = minutes % 60;
+    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:00`;
   },
 
   promise() {

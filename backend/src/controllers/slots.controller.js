@@ -89,60 +89,63 @@ const generateSlots = async (req, res) => {
   if (!date) return res.status(400).json({ message: 'date is required' });
 
   try {
+    const supabase = require('../config/supabase');
+    
     if (!available) {
-      await db.query(
-        `INSERT INTO ClinicDailyAvailability (clinic_id, available_date, is_available)
-         VALUES (?, ?, 0)
-         ON DUPLICATE KEY UPDATE is_available = 0`,
-        [clinic_id, date]
-      );
+      await supabase.from('clinic_daily_availability').upsert({ 
+        clinic_id, 
+        available_date: date, 
+        is_available: false 
+      });
       return res.json({ success: true, available: false, message: 'Marked unavailable for the selected date' });
     }
 
-    const [clinicRows] = await db.query(
-      'SELECT morning_start, morning_end, evening_start, evening_end FROM Clinic WHERE clinic_id = ?',
-      [clinic_id]
-    );
+    const { data: clinicRows } = await supabase
+      .from('clinic')
+      .select('morning_start, morning_end, evening_start, evening_end, booked_slot_duration, buffer_duration')
+      .eq('clinic_id', clinic_id);
+
     const clinic = clinicRows[0] || {};
 
     const slots = generateSlotRows({
       clinic_id,
       date,
-      morning_start: body.morning_start || clinic.morning_start || '09:00:00',
-      morning_end: body.morning_end || clinic.morning_end || '13:00:00',
+      morning_start: body.morning_start || clinic.morning_start || '09:00',
+      morning_end: body.morning_end || clinic.morning_end || '13:00',
       evening_start: body.evening_start || clinic.evening_start,
       evening_end: body.evening_end || clinic.evening_end,
-      booked_duration: body.booked_duration || 20,
-      walkin_duration: body.walkin_duration || 15,
+      booked_duration: body.booked_duration || clinic.booked_slot_duration || 20,
+      walkin_duration: body.walkin_duration || clinic.buffer_duration || 15,
       walkin_to_booked_ratio: body.walkin_to_booked_ratio || 3,
       booked_token_count: body.booked_token_count,
       buffer_token_count: body.buffer_token_count,
     });
 
-    await db.query('DELETE FROM Slot WHERE clinic_id = ? AND slot_date = ?', [clinic_id, date]);
+    // Delete old slots
+    await supabase.from('slot').delete().eq('clinic_id', clinic_id).eq('slot_date', date);
 
-    for (const slot of slots) {
-      await db.query(
-        `INSERT INTO Slot (clinic_id, slot_date, slot_start_time, slot_type, status, token_number)
-         VALUES (?, ?, ?, ?, ?, ?)`,
-        [slot.clinic_id, slot.slot_date, slot.slot_start_time, slot.slot_type, slot.status, slot.token_number]
-      );
-    }
+    // Bulk insert new slots
+    await supabase.from('slot').insert(slots);
 
-    await db.query(
-      `INSERT INTO ClinicDailyAvailability (clinic_id, available_date, is_available)
-       VALUES (?, ?, 1)
-       ON DUPLICATE KEY UPDATE is_available = 1`,
-      [clinic_id, date]
-    );
+    // Upsert availability
+    await supabase.from('clinic_daily_availability').upsert({ 
+      clinic_id, 
+      available_date: date, 
+      is_available: true 
+    });
 
-    await db.query(
-      'UPDATE Clinic SET booked_slot_duration = ?, buffer_duration = ? WHERE clinic_id = ?',
-      [body.booked_duration || 20, body.walkin_duration || 15, clinic_id]
-    );
+    // Update clinic durations
+    await supabase
+      .from('clinic')
+      .update({ 
+        booked_slot_duration: body.booked_duration || 20,
+        buffer_duration: body.walkin_duration || 15
+      })
+      .eq('clinic_id', clinic_id);
 
     res.json({ success: true, available: true, slots });
   } catch (err) {
+    console.error('Generate slots error:', err);
     res.status(500).json({ error: err.message });
   }
 };
