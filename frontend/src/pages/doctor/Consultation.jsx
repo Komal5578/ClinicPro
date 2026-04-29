@@ -1,8 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Sidebar from '../../components/common/Sidebar';
 import { saveConsultation, getPatientHistory } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
+
+const DUMMY_CLINIC_NAME = 'Sunrise Family Clinic';
 
 const Consultation = () => {
   const { patient_id } = useParams();
@@ -25,8 +27,12 @@ const Consultation = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [consultationId, setConsultationId] = useState(null);
+  const [clinicName, setClinicName] = useState(DUMMY_CLINIC_NAME);
   const [isListening, setIsListening] = useState(false);
   const [activeField, setActiveField] = useState(null);
+  const [voiceInterim, setVoiceInterim] = useState('');
+  const [voiceStatus, setVoiceStatus] = useState('');
+  const recognitionRef = useRef(null);
 
   useEffect(() => {
     const load = async () => {
@@ -57,6 +63,7 @@ const Consultation = () => {
         clinic_id,
       });
       setConsultationId(res.data.consultation_id);
+      setClinicName(res.data.clinic_name || DUMMY_CLINIC_NAME);
       setSuccess('Consultation saved!');
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to save consultation');
@@ -65,18 +72,84 @@ const Consultation = () => {
 
   const startVoice = (field) => {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) { alert('Voice input only works in Chrome'); return; }
+    if (!SR) {
+      setVoiceStatus('Voice input is not supported in this browser');
+      return;
+    }
+
+    if (isListening && activeField === field && recognitionRef.current) {
+      recognitionRef.current.stop();
+      setVoiceStatus('Stopped listening');
+      return;
+    }
+
+    if (isListening && recognitionRef.current) {
+      recognitionRef.current.stop();
+    }
+
     const recognition = new SR();
+    recognitionRef.current = recognition;
     recognition.lang = 'en-IN';
-    recognition.continuous = false;
-    recognition.interimResults = false;
-    recognition.onstart = () => { setIsListening(true); setActiveField(field); };
-    recognition.onresult = (e) => {
-      const text = e.results[0][0].transcript;
-      setForm(f => ({ ...f, [field]: f[field] ? f[field] + ' ' + text : text }));
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.maxAlternatives = 1;
+
+    let hasFinalText = false;
+    let hasInterimText = false;
+
+    recognition.onstart = () => {
+      setIsListening(true);
+      setActiveField(field);
+      setVoiceInterim('');
+      setVoiceStatus('Listening... speak now');
     };
-    recognition.onerror = () => setIsListening(false);
-    recognition.onend = () => { setIsListening(false); setActiveField(null); };
+
+    recognition.onresult = (e) => {
+      let interim = '';
+      let finalText = '';
+
+      for (let i = e.resultIndex; i < e.results.length; i += 1) {
+        const transcript = e.results[i][0]?.transcript || '';
+        if (e.results[i].isFinal) {
+          finalText += `${transcript} `;
+        } else {
+          interim += transcript;
+        }
+      }
+
+      setVoiceInterim(interim.trim());
+      if (interim.trim()) hasInterimText = true;
+
+      if (finalText.trim()) {
+        hasFinalText = true;
+        const clean = finalText.trim();
+        setForm((f) => ({ ...f, [field]: f[field] ? `${f[field]} ${clean}` : clean }));
+        setVoiceStatus('Captured voice text');
+      }
+    };
+
+    recognition.onerror = (e) => {
+      const message = e?.error === 'not-allowed'
+        ? 'Mic permission denied. Allow microphone access.'
+        : e?.error === 'no-speech'
+          ? 'No speech detected. Try again.'
+          : e?.error === 'audio-capture'
+            ? 'No microphone detected by browser.'
+          : 'Voice capture failed. Please try again.';
+      setVoiceStatus(message);
+      setIsListening(false);
+    };
+
+    recognition.onend = () => {
+      if (!hasFinalText && !hasInterimText) {
+        setVoiceStatus('No speech detected. Tap Voice and speak clearly.');
+      }
+      recognitionRef.current = null;
+      setVoiceInterim('');
+      setIsListening(false);
+      setActiveField(null);
+    };
+
     recognition.start();
   };
 
@@ -98,6 +171,9 @@ const Consultation = () => {
                 {patient.name} · Age {patient.age} · {patient.phone}
               </p>
             )}
+            <p style={{ color: '#0f6fff', fontSize: 12, marginTop: 4, fontWeight: 700 }}>
+              Clinic: {clinicName}
+            </p>
           </div>
         </div>
 
@@ -194,6 +270,11 @@ const Consultation = () => {
                         style={{ minHeight: 90 }}
                         required
                       />
+                      {isListening && activeField === 'chief_complaint' && voiceInterim && (
+                        <div style={{ marginTop: 6, fontSize: 12, color: '#0f766e' }}>
+                          Hearing: {voiceInterim}
+                        </div>
+                      )}
                     </div>
 
                     {/* Diagnosis with voice */}
@@ -216,7 +297,16 @@ const Consultation = () => {
                         onChange={e => setForm(f => ({ ...f, diagnosis_note: e.target.value }))}
                         style={{ minHeight: 120 }}
                       />
+                      {isListening && activeField === 'diagnosis_note' && voiceInterim && (
+                        <div style={{ marginTop: 6, fontSize: 12, color: '#0f766e' }}>
+                          Hearing: {voiceInterim}
+                        </div>
+                      )}
                     </div>
+
+                    {voiceStatus && (
+                      <div style={{ marginTop: 4, fontSize: 12, color: '#64748b' }}>{voiceStatus}</div>
+                    )}
 
                     {/* Follow-up */}
                     <div style={{

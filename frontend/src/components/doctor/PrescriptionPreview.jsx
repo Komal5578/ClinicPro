@@ -13,7 +13,7 @@ const PrescriptionPreview = ({ prescription, items }) => {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20, paddingBottom: 16, borderBottom: '2px solid var(--border)' }}>
         <div>
           <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--primary)' }}>
-            ClinicPro
+            {prescription.clinic_name || 'Sunrise Family Clinic'}
           </div>
           <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>
             Dr. {prescription.doctor_name}

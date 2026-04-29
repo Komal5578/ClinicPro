@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { sendPatientOtp, verifyPatientOtp, getPatientPrescriptions } from '../../services/api';
+import { apiOrigin, sendPatientOtp, verifyPatientOtp, getPatientPrescriptions } from '../../services/api';
 
 const PrescriptionDrawer = ({ onClose }) => {
   const [phone, setPhone] = useState('');
@@ -10,6 +10,14 @@ const PrescriptionDrawer = ({ onClose }) => {
   const [tab, setTab] = useState('prescriptions');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  const getPdfUrlForConsultation = (consultationId) => {
+    const prescription = history?.prescriptions?.find((item) =>
+      Number(item.consultation_id) === Number(consultationId)
+    );
+
+    return prescription?.pdf_path ? `${apiOrigin}/pdfs/${prescription.pdf_path}` : '';
+  };
 
   const handlePhoneSubmit = async (e) => {
     e.preventDefault();
@@ -179,7 +187,10 @@ const PrescriptionDrawer = ({ onClose }) => {
 
             {tab === 'prescriptions' && (
               history?.consultations?.length ? (
-                history.consultations.map(c => (
+                history.consultations.map(c => {
+                  const pdfUrl = getPdfUrlForConsultation(c.consultation_id);
+
+                  return (
                   <div key={c.consultation_id} style={{
                     background: '#f8fafb', borderRadius: 12, padding: 16,
                     marginBottom: 10, border: '1px solid #f1f5f9',
@@ -187,8 +198,42 @@ const PrescriptionDrawer = ({ onClose }) => {
                     <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 6, fontWeight: 600 }}>
                       {new Date(c.consultation_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                     </div>
-                    <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>{c.chief_complaint}</div>
-                    <div style={{ fontSize: 13, color: '#64748b' }}>{c.diagnosis_note}</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: '#0f172a', marginBottom: 8 }}>
+                      Reason
+                    </div>
+                    <div style={{ fontSize: 13, color: '#64748b', lineHeight: 1.5, marginBottom: 10 }}>
+                      {c.chief_complaint || 'Not specified'}
+                    </div>
+
+                    <div style={{ fontSize: 13, fontWeight: 700, color: '#0f172a', marginBottom: 8 }}>
+                      Diagnosis
+                    </div>
+                    <div style={{ fontSize: 13, color: '#64748b', lineHeight: 1.5, marginBottom: 12 }}>
+                      {c.diagnosis_note || 'Not specified'}
+                    </div>
+
+                    {pdfUrl ? (
+                      <button
+                        type="button"
+                        onClick={() => window.open(pdfUrl, '_blank', 'noopener,noreferrer')}
+                        style={{
+                          border: '1px solid #0d9488',
+                          background: '#0d9488',
+                          color: 'white',
+                          borderRadius: 8,
+                          padding: '8px 12px',
+                          fontWeight: 700,
+                          fontSize: 12,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Download / Open PDF
+                      </button>
+                    ) : (
+                      <div style={{ fontSize: 13, color: '#64748b' }}>
+                        PDF pending
+                      </div>
+                    )}
                     {c.followup_date && (
                       <div style={{
                         marginTop: 8, padding: '4px 10px', background: '#f0fdfa',
@@ -199,7 +244,8 @@ const PrescriptionDrawer = ({ onClose }) => {
                       </div>
                     )}
                   </div>
-                ))
+                  );
+                })
               ) : (
                 <div style={{ textAlign: 'center', padding: 28, color: '#94a3b8', fontSize: 13 }}>
                   No prescriptions yet
