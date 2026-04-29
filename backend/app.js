@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
+const path = require('path');
 
 const authRoutes = require('./src/routes/auth.routes');
 const patientRoutes = require('./src/routes/patient.routes');
@@ -16,12 +17,14 @@ const registerRoutes = require('./src/routes/register.routes');
 const clinicsRoutes = require('./src/routes/clinics.routes');
 const medicineRoutes = require('./src/routes/medicine.routes');
 const chatbotRoutes = require('./src/routes/chatbot.routes');
+const debugRoutes = require('./src/routes/debug.routes');
 
 const app = express();
 
 app.use(helmet());
 app.use(cors());
 app.use(express.json());
+app.use('/pdfs', express.static(path.join(__dirname, 'generated/pdfs')));
 
 app.use('/api/auth', authRoutes);
 app.use('/api/patients', patientRoutes);
@@ -37,6 +40,7 @@ app.use('/api/register', registerRoutes);
 app.use('/api/clinics', clinicsRoutes);
 app.use('/api/medicine', medicineRoutes);
 app.use('/api/chatbot', chatbotRoutes);
+app.use('/api/debug', debugRoutes);
 
 app.get('/', (req, res) => {
   res.json({ message: 'ClinicPro API running' });

@@ -19,7 +19,7 @@ const PrescriptionDrawer = ({ onClose }) => {
       await sendPatientOtp(phone);
       setStep('otp');
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to send OTP');
+      setError(err.response?.data?.error || err.response?.data?.message || 'Failed to send OTP');
     } finally {
       setLoading(false);
     }
@@ -38,7 +38,7 @@ const PrescriptionDrawer = ({ onClose }) => {
       setPatient(prescriptionsRes.data.patient || verifyRes.data.patient);
       setStep('dashboard');
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to verify OTP');
+      setError(err.response?.data?.error || err.response?.data?.message || 'Failed to verify OTP');
     } finally {
       setLoading(false);
     }
@@ -70,7 +70,7 @@ const PrescriptionDrawer = ({ onClose }) => {
           background: 'white', border: '1px solid #e2e8f0',
           fontSize: 15, cursor: 'pointer', color: '#64748b',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}></button>
+        }} aria-label="Close" title="Close">×</button>
       </div>
 
       {/* Content */}

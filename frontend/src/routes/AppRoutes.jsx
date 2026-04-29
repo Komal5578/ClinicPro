@@ -17,6 +17,7 @@ import Prescription from '../pages/doctor/Prescription';
 import Analytics from '../pages/doctor/Analytics';
 import FollowUp from '../pages/doctor/FollowUp';
 
+
 // Receptionist pages
 import Dashboard from '../pages/receptionist/Dashboard';
 import WalkInRegister from '../pages/receptionist/WalkInRegister';

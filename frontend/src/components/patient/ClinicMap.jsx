@@ -82,6 +82,7 @@ const formatDistance = (meters) => {
 const ClinicMap = ({ clinics = [], sectorFilter, onClinicSelect, routeTarget, userLocation: externalUserLocation }) => {
   const navigate = useNavigate();
   const [userLocation, setUserLocation] = useState(externalUserLocation || { lat: 19.076, lng: 72.8777 });
+  const [locationAccuracy, setLocationAccuracy] = useState(externalUserLocation?.accuracy || null);
   const [search, setSearch] = useState('');
   const [routePoints, setRoutePoints] = useState(null);
   const [routeInfo, setRouteInfo] = useState(null);
@@ -121,15 +122,23 @@ const ClinicMap = ({ clinics = [], sectorFilter, onClinicSelect, routeTarget, us
       navigator.geolocation.getCurrentPosition(
         (pos) => {
           if (!externalUserLocation) {
-            setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+            setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy });
+            setLocationAccuracy(pos.coords.accuracy);
           }
         },
         () => {
           if (!externalUserLocation) {
             setUserLocation({ lat: 19.076, lng: 72.8777 });
+            setLocationAccuracy(null);
           }
         },
       );
+    }
+  }, [externalUserLocation]);
+
+  useEffect(() => {
+    if (externalUserLocation?.accuracy != null) {
+      setLocationAccuracy(externalUserLocation.accuracy);
     }
   }, [externalUserLocation]);
 
@@ -154,9 +163,13 @@ const ClinicMap = ({ clinics = [], sectorFilter, onClinicSelect, routeTarget, us
 
     mapInstanceRef.current = map;
 
+    const popupText = locationAccuracy != null
+      ? `📍 You are here • accuracy ~${Math.round(locationAccuracy)}m`
+      : '📍 You are here';
+
     userMarkerRef.current = L.marker([userLocation.lat, userLocation.lng], { icon: userIcon })
       .addTo(map)
-      .bindPopup('📍 You are here');
+      .bindPopup(popupText);
   }, [userLocation.lat, userLocation.lng]);
 
   useEffect(() => {
@@ -386,6 +399,35 @@ const ClinicMap = ({ clinics = [], sectorFilter, onClinicSelect, routeTarget, us
           >
             ✕ Clear
           </button>
+        </div>
+      )}
+
+      {userLocation && (
+        <div style={{
+          padding: '8px 14px',
+          background: '#eff6ff',
+          border: '1px solid #bfdbfe',
+          borderRadius: 8,
+          fontSize: 12.5,
+          color: '#1d4ed8',
+          fontWeight: 600,
+        }}>
+          Current location: {userLocation.lat.toFixed(5)}, {userLocation.lng.toFixed(5)}
+          {locationAccuracy != null ? ` • accuracy ~${Math.round(locationAccuracy)}m` : ''}
+        </div>
+      )}
+
+      {locationAccuracy != null && locationAccuracy > 1000 && (
+        <div style={{
+          padding: '8px 14px',
+          background: '#fffbeb',
+          border: '1px solid #fcd34d',
+          borderRadius: 8,
+          fontSize: 12.5,
+          color: '#92400e',
+          fontWeight: 600,
+        }}>
+          Approximate location detected. Turn on precise device location for better map accuracy.
         </div>
       )}
 

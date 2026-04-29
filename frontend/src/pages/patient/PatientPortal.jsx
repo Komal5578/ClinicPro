@@ -29,7 +29,7 @@ const PatientPortal = () => {
       async (position) => {
         const lat = position.coords.latitude;
         const lng = position.coords.longitude;
-        setUserLocation({ lat, lng });
+        setUserLocation({ lat, lng, accuracy: position.coords.accuracy });
         setLocationStatus('Showing clinics near your current location.');
 
         try {

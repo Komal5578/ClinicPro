@@ -18,5 +18,6 @@ module.exports = {
   TWILIO_AUTH_TOKEN: process.env.TWILIO_AUTH_TOKEN,
   TWILIO_WHATSAPP_FROM: process.env.TWILIO_WHATSAPP_FROM,
   TWILIO_CONTENT_SID: process.env.TWILIO_CONTENT_SID,
+  GROQ_API_KEY: process.env.GROQ_API_KEY,
   PORT: process.env.PORT || 5000,
 };

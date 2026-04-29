@@ -34,7 +34,7 @@ const getTodayWalkIns = async (req, res) => {
   const { clinic_id } = req.query;
   try {
     const [rows] = await db.query(
-      `SELECT w.walkin_id, w.token_number, w.priority, w.status, w.chief_complaint, w.arrived_at,
+      `SELECT w.walkin_id, w.patient_id, w.token_number, w.priority, w.status, w.chief_complaint, w.arrived_at,
               p.name as patient_name, p.phone, p.age
        FROM WalkIn w
        JOIN Patient p ON w.patient_id = p.patient_id

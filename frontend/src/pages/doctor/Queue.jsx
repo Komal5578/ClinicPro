@@ -13,29 +13,37 @@ const DoctorControls = ({ clinicId }) => {
   const [showUrgentForm, setShowUrgentForm] = useState(false);
 
   const handleDelayToggle = async () => {
-    const newStatus = isDelayed ? 'ON_TIME' : 'DELAYED';
-    await setDoctorStatus({
-      clinic_id: clinicId,
-      status: newStatus,
-      message: isDelayed ? null : (delayMsg || 'Doctor is running slightly late'),
-    });
-    setIsDelayed(!isDelayed);
+    try {
+      const newStatus = isDelayed ? 'ON_TIME' : 'DELAYED';
+      await setDoctorStatus({
+        clinic_id: clinicId,
+        status: newStatus,
+        message: isDelayed ? null : (delayMsg || 'Doctor is running slightly late'),
+      });
+      setIsDelayed(!isDelayed);
+    } catch (err) {
+      alert(err.response?.data?.message || err.response?.data?.error || 'Failed to update doctor status');
+    }
   };
 
   const handleGenerateSlots = async () => {
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const dateStr = tomorrow.toISOString().split('T')[0];
+    try {
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const dateStr = tomorrow.toISOString().split('T')[0];
 
-    await generateSlots({
-      clinic_id: clinicId,
-      date: dateStr,
-      booked_duration: bookedDur,
-      buffer_duration: bufferDur,
-      booked_ratio: ratio,
-    });
+      await generateSlots({
+        clinic_id: clinicId,
+        date: dateStr,
+        booked_duration: bookedDur,
+        buffer_duration: bufferDur,
+        booked_ratio: ratio,
+      });
 
-    alert(`Slots generated for ${dateStr}`);
+      alert(`Slots generated for ${dateStr}`);
+    } catch (err) {
+      alert(err.response?.data?.message || err.response?.data?.error || 'Failed to generate slots');
+    }
   };
 
   return (
@@ -131,16 +139,19 @@ const UrgentPatientForm = ({ clinicId, onClose }) => {
       alert('Enter patient ID');
       return;
     }
+    try {
+      await insertUrgentPatient({
+        clinic_id: clinicId,
+        patient_id: patientId,
+        chief_complaint: complaint,
+        delay_minutes: delay,
+      });
 
-    await insertUrgentPatient({
-      clinic_id: clinicId,
-      patient_id: patientId,
-      chief_complaint: complaint,
-      delay_minutes: delay,
-    });
-
-    alert(`Urgent patient inserted. All upcoming slots delayed by ${delay} mins.`);
-    onClose();
+      alert(`Urgent patient inserted. All upcoming slots delayed by ${delay} mins.`);
+      onClose();
+    } catch (err) {
+      alert(err.response?.data?.message || err.response?.data?.error || 'Failed to insert urgent patient');
+    }
   };
 
   return (
@@ -177,10 +188,12 @@ const Queue = () => {
   const [appointments, setAppointments] = useState([]);
   const [walkIns, setWalkIns] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [activeTab, setActiveTab] = useState('walkins');
 
   const fetchData = async () => {
     try {
+      setLoadError('');
       const [appt, wi] = await Promise.all([
         getTodayAppointments(clinic_id),
         getTodayWalkIns(clinic_id),
@@ -188,6 +201,8 @@ const Queue = () => {
       setAppointments(appt.data);
       setWalkIns(wi.data);
     } catch (err) {
+      const message = err.response?.data?.message || err.response?.data?.error || 'Failed to load queue data';
+      setLoadError(message);
       console.error(err);
     } finally {
       setLoading(false);
@@ -200,13 +215,27 @@ const Queue = () => {
     return () => clearInterval(interval);
   }, []);
 
-  const startConsultation = async (walkin) => {
-    try {
-      await updateWalkInStatus(walkin.walkin_id, 'IN_CONSULTATION');
-      localStorage.setItem('current_patient_id', walkin.patient_id);
-      navigate(`/doctor/consultation/${walkin.patient_id}`);
-    } catch (err) { console.error(err); }
-  };
+
+ const startConsultation = async (walkin) => {
+  // Try every possible field name your DB might return
+  const pid = walkin.patient_id || walkin.patientId || walkin.pid;
+  
+  if (!pid) {
+    alert('Cannot start consultation: patient ID missing. Check backend query.');
+    console.log('Full walkin object:', JSON.stringify(walkin, null, 2));
+    return;
+  }
+
+  try {
+    setLoadError('');
+    await updateWalkInStatus(walkin.walkin_id, 'IN_CONSULTATION');
+    localStorage.setItem('current_patient_id', pid);
+    navigate(`/doctor/consultation/${pid}`);
+  } catch (err) {
+    const message = err.response?.data?.message || err.response?.data?.error || 'Failed to start consultation';
+    setLoadError(message);
+  }
+};
 
   const priorityOrder = { URGENT: 0, PRIORITY: 1, REGULAR: 2 };
   const sortedWalkIns = [...walkIns].sort((a, b) =>
@@ -238,6 +267,21 @@ const Queue = () => {
             <span style={{ fontSize: 13 }}>↻</span> Refresh
           </button>
         </div>
+
+        {loadError && (
+          <div style={{
+            marginBottom: 16,
+            padding: '10px 14px',
+            borderRadius: 12,
+            background: '#fef2f2',
+            border: '1px solid #fecaca',
+            color: '#991b1b',
+            fontSize: 13,
+            fontWeight: 600,
+          }}>
+            {loadError}
+          </div>
+        )}
 
         <DoctorControls clinicId={clinic_id} />
 

@@ -6,6 +6,7 @@ import { useAuth } from '../../context/AuthContext';
 
 const Consultation = () => {
   const { patient_id } = useParams();
+   console.log("patient_id:", patient_id);
   const { user } = useAuth();
   const navigate = useNavigate();
 

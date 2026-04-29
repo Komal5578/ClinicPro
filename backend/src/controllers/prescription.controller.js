@@ -1,4 +1,5 @@
 const db = require('../config/db');
+const { generatePrescriptionPdf, DEFAULT_CLINIC_NAME } = require('../services/pdf.service');
 
 const getMyPrescriptions = async (req, res) => {
   const patientId = req.user?.patient_id;
@@ -47,12 +48,31 @@ const getMyPrescriptions = async (req, res) => {
 };
 
 const generatePrescription = async (req, res) => {
-  const { consultation_id, patient_id, doctor_id, items } = req.body;
+  const { consultation_id, items } = req.body;
   try {
+    const [[consultation]] = await db.query(
+      `SELECT c.consultation_id, c.patient_id, c.doctor_id, c.clinic_id,
+              c.chief_complaint, c.diagnosis_note, c.followup_instructions,
+              p.name as patient_name, p.age, p.phone,
+              d.name as doctor_name, d.specialization,
+              cl.clinic_name
+       FROM Consultation c
+       JOIN Patient p ON c.patient_id = p.patient_id
+       JOIN Doctor d ON c.doctor_id = d.doctor_id
+       LEFT JOIN Clinic cl ON c.clinic_id = cl.clinic_id
+       WHERE c.consultation_id = ?
+       LIMIT 1`,
+      [consultation_id]
+    );
+
+    if (!consultation) {
+      return res.status(404).json({ message: 'Consultation not found' });
+    }
+
     const [result] = await db.query(
       `INSERT INTO Prescription (consultation_id, patient_id, doctor_id)
        VALUES (?, ?, ?)`,
-      [consultation_id, patient_id, doctor_id]
+      [consultation.consultation_id, consultation.patient_id, consultation.doctor_id]
     );
     const prescription_id = result.insertId;
 
@@ -65,21 +85,47 @@ const generatePrescription = async (req, res) => {
       );
     }
 
-    res.status(201).json({ message: 'Prescription saved', prescription_id });
+    const pdf = await generatePrescriptionPdf({
+      prescriptionId: prescription_id,
+      clinicName: consultation.clinic_name || DEFAULT_CLINIC_NAME,
+      doctorName: consultation.doctor_name,
+      speciality: consultation.specialization,
+      patientName: consultation.patient_name,
+      patientAge: consultation.age,
+      patientPhone: consultation.phone,
+      chiefComplaint: consultation.chief_complaint,
+      diagnosisNote: consultation.diagnosis_note,
+      followupInstructions: consultation.followup_instructions,
+      items,
+    });
+
+    await db.query(
+      'UPDATE Prescription SET pdf_path = ? WHERE prescription_id = ?',
+      [pdf.fileName, prescription_id]
+    );
+
+    res.status(201).json({
+      message: 'Prescription saved',
+      prescription_id,
+      pdf_url: pdf.fileUrl,
+      clinic_name: consultation.clinic_name || DEFAULT_CLINIC_NAME,
+    });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
 };
-
 const getPrescription = async (req, res) => {
   const { prescription_id } = req.params;
   try {
     const [[prescription]] = await db.query(
       `SELECT pr.*, p.name as patient_name, p.age, p.phone,
-              d.name as doctor_name
+              d.name as doctor_name, d.specialization,
+              cl.clinic_name
        FROM Prescription pr
        JOIN Patient p ON pr.patient_id = p.patient_id
        JOIN Doctor d ON pr.doctor_id = d.doctor_id
+       JOIN Consultation c ON pr.consultation_id = c.consultation_id
+       LEFT JOIN Clinic cl ON c.clinic_id = cl.clinic_id
        WHERE pr.prescription_id = ?`,
       [prescription_id]
     );
@@ -89,7 +135,11 @@ const getPrescription = async (req, res) => {
       [prescription_id]
     );
 
-    res.json({ prescription, items });
+    res.json({
+      prescription,
+      items,
+      pdf_url: prescription?.pdf_path ? `/pdfs/${prescription.pdf_path}` : null,
+    });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }

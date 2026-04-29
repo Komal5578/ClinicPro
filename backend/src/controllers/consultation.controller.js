@@ -7,6 +7,7 @@ const getPatientHistory = async (req, res) => {
     return res.status(403).json({ message: 'Access denied' });
   }
   try {
+    console.log(req.body);
     // Last 3 consultations
     const [consultations] = await db.query(
       `SELECT c.*, p.name as patient_name, p.age, p.phone
@@ -16,7 +17,7 @@ const getPatientHistory = async (req, res) => {
        ORDER BY c.consultation_date DESC LIMIT 3`,
       [patient_id]
     );
-
+    console.log(req.body);
     // Prescription items via consultation
     const [prescriptions] = await db.query(
       `SELECT pi.*, pr.generated_at, pr.pdf_path
@@ -26,17 +27,25 @@ const getPatientHistory = async (req, res) => {
        ORDER BY pr.generated_at DESC`,
       [patient_id]
     );
-
+    console.log(req.body);
     // Patient conditions
     const [conditions] = await db.query(
+      
       'SELECT * FROM PatientConditions WHERE patient_id = ?',
       [patient_id]
     );
 
     res.json({ consultations, prescriptions, conditions });
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err.message });
-  }
+  console.error(err);
+
+  res.status(500).json({
+    message: 'Server error',
+    error: err.message,
+    sqlError: err.sqlMessage,
+    code: err.code
+  });
+}
 };
 
 // Save consultation

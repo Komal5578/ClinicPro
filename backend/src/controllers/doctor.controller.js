@@ -20,6 +20,9 @@ const getDoctorProfile = async (req, res) => {
 // Get today's slots
 const getTodaySlots = async (req, res) => {
   const { clinic_id } = req.query;
+  if (!clinic_id) {
+    return res.status(400).json({ message: 'clinic_id is required' });
+  }
   try {
     const [rows] = await db.query(
       `SELECT * FROM Slot 
@@ -36,6 +39,12 @@ const getTodaySlots = async (req, res) => {
 // Generate slots for a day
 const generateSlots = async (req, res) => {
   const { clinic_id, date, booked_duration, buffer_duration, booked_ratio } = req.body;
+  if (!clinic_id) {
+    return res.status(400).json({ message: 'clinic_id is required' });
+  }
+  if (!date) {
+    return res.status(400).json({ message: 'date is required' });
+  }
   try {
     await db.query('CALL generate_slots(?, ?, ?, ?, ?)', [
       clinic_id,
@@ -59,6 +68,12 @@ const generateSlots = async (req, res) => {
 // Set doctor delay status
 const setDoctorStatus = async (req, res) => {
   const { clinic_id, status, message } = req.body;
+  if (!clinic_id) {
+    return res.status(400).json({ message: 'clinic_id is required' });
+  }
+  if (!status) {
+    return res.status(400).json({ message: 'status is required' });
+  }
   try {
     await db.query(
       'UPDATE Clinic SET doctor_status = ?, delay_message = ? WHERE clinic_id = ?',
@@ -96,6 +111,9 @@ const insertUrgentPatient = async (req, res) => {
 // Get clinic status for patient portal
 const getClinicStatus = async (req, res) => {
   const { clinic_id } = req.query;
+  if (!clinic_id) {
+    return res.status(400).json({ message: 'clinic_id is required' });
+  }
   try {
     const [rows] = await db.query(
       'SELECT doctor_status, delay_message FROM Clinic WHERE clinic_id = ?',
