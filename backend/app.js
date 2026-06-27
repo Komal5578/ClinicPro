@@ -28,10 +28,14 @@ app.use(cors({
   origin: [
     'http://localhost:5173',
     'https://clinic-pro-ten.vercel.app',
-    '*' // or just use * for now
+   
   ],
   credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
 }));
+
+app.options('*', cors());
 app.use(express.json());
 app.use('/pdfs', (req, res, next) => {
   res.removeHeader('X-Frame-Options');
