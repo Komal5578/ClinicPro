@@ -191,7 +191,7 @@ const ClinicAuth = () => {
                 border: '1px solid #f1f5f9',
               }}>
                 <strong style={{ color: '#475569' }}>Demo:</strong>{' '}
-                Receptionist → anjali@iyer.com / 123456
+                Receptionist → anjali@iyer.com / 123456<br></br>
                 Doctor → priya.iyer@clinic.com / 123456
               </div>
             </div>
