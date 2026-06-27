@@ -15,13 +15,13 @@ const InventoryManagement = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  const fetchData = async () => {
-    try {
-      const [inv, ls] = await Promise.all([getInventory(), getLowStock()]);
-      setInventory(inv.data);
-      setLowStock(ls.data);
-    } catch (err) { console.error(err); }
-  };
+const fetchData = async () => {
+  try {
+    const [inv, ls] = await Promise.all([getInventory(), getLowStock()]);
+    setInventory(Array.isArray(inv) ? inv : inv?.data || []);
+    setLowStock(Array.isArray(ls) ? ls : ls?.data || []);
+  } catch (err) { console.error(err); }
+};
 
   useEffect(() => { fetchData(); }, []);
 

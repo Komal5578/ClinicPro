@@ -7,5 +7,7 @@ const { authorizeRoles } = require('../middleware/role.middleware');
 router.post('/register', authenticate, authorizeRoles('receptionist'), registerWalkIn);
 router.get('/today', authenticate, authorizeRoles('doctor', 'receptionist'), getTodayWalkIns);
 router.patch('/:walkin_id/status', authenticate, authorizeRoles('doctor', 'receptionist'), updateWalkInStatus);
+router.post('/', authenticate, authorizeRoles('receptionist'), registerWalkIn);
+router.post('/register', authenticate, authorizeRoles('receptionist'), registerWalkIn);
 
 module.exports = router;

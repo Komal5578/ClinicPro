@@ -119,6 +119,7 @@ const DoctorSetupSlots = () => {
     setSuccess('');
     try {
       const res = await generateSlots({
+          
         clinic_id: selectedClinicId,
         date,
         available,
@@ -132,6 +133,7 @@ const DoctorSetupSlots = () => {
         booked_token_count: Number(bookedTokenCount) || 1,
         buffer_token_count: Number(bufferTokenCount) || 1,
       });
+      console.log('API response:', res.data);
       if (res.data?.available === false) {
         setSuccess('Marked as not available for the selected date.');
       } else {

@@ -16,11 +16,11 @@ const ClinicAuth = () => {
     setLoading(true);
     try {
       const res = await login({ ...form, role: form.role.toLowerCase() });
-      loginUser(res.data.user, res.data.token);
-      if (res.data.user.role === 'doctor') navigate('/doctor/queue');
+      loginUser(res.user, res.token);
+      if (res.user.role === 'doctor') navigate('/doctor/queue');
       else navigate('/receptionist/dashboard');
     } catch (err) {
-      setError(err.response?.data?.message || 'Login failed. Check your credentials.');
+      setError(err.message || 'Login failed. Check your credentials.');
     } finally {
       setLoading(false);
     }
@@ -36,7 +36,6 @@ const ClinicAuth = () => {
       padding: 24,
       fontFamily: "'Plus Jakarta Sans', sans-serif",
     }}>
-      {/* Back to home */}
       <button
         onClick={() => navigate('/')}
         style={{
@@ -94,7 +93,6 @@ const ClinicAuth = () => {
           )}
 
           <form onSubmit={handleSubmit} style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-            {/* Role toggle */}
             <div style={{ marginBottom: 20 }}>
               <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#0f172a', marginBottom: 8 }}>
                 I am a
@@ -193,7 +191,7 @@ const ClinicAuth = () => {
                 border: '1px solid #f1f5f9',
               }}>
                 <strong style={{ color: '#475569' }}>Demo:</strong>{' '}
-                Receptionist → anjali@clinic.com / 123456
+                Receptionist → anjali@iyer.com / 123456
               </div>
             </div>
           </form>
@@ -226,7 +224,6 @@ const ClinicAuth = () => {
             Get your clinic on ClinicPro in 3 easy steps
           </p>
 
-          {/* 3 mini steps */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 32, width: '100%', maxWidth: 260 }}>
             {[
               { num: '1', label: 'Verify with GST number' },
@@ -278,7 +275,6 @@ const ClinicAuth = () => {
         </div>
       </div>
 
-      {/* Responsive */}
       <style>{`
         @media (max-width: 760px) {
           div[style*="grid-template-columns: 1fr 1fr"] {

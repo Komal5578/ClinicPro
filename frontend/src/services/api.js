@@ -1,97 +1,107 @@
-import axios from 'axios';
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+export const apiOrigin = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000';
 
-const api = axios.create({
-  baseURL: 'http://localhost:5000/api',
-  headers: { 'Content-Type': 'application/json' },
-});
-
-export const apiBaseUrl = api.defaults.baseURL;
-export const apiOrigin = api.defaults.baseURL.replace(/\/api$/, '');
-
-// Attach token to every request automatically
-api.interceptors.request.use((config) => {
+const fetchJSON = async (url, options = {}) => {
   const token = localStorage.getItem('token');
-  if (token && !config.headers?.Authorization) {
-    config.headers.Authorization = `Bearer ${token}`;
+  const res = await fetch(`${API_BASE}${url}`, {
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    ...options,
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    const err = new Error(body?.message || body?.error || `API error: ${res.status}`);
+    err.response = { data: body };
+    throw err;
   }
-  return config;
-});
+  return res.json();
+};
 
 // Auth
-export const login = (data) => api.post('/auth/login', data);
-export const sendPatientOtp = (phone) => api.post('/auth/send-otp', { phone });
-export const verifyPatientOtp = (phone, otp) => api.post('/auth/verify-otp', { phone, otp });
+export const login = (data) => fetchJSON('/auth/login', { method: 'POST', body: JSON.stringify(data) });
+export const register = (data) => fetchJSON('/auth/register', { method: 'POST', body: JSON.stringify(data) });
 
-// Patients
-export const searchPatient = (phone) => api.get(`/patients/search?phone=${phone}`);
-export const searchPatientPublic = (phone) => api.get(`/patients/search/public?phone=${phone}`);
-export const registerPatient = (data) => api.post('/patients/register/public', data);
+// Clinics
+export const getPublicClinics = () => fetchJSON('/clinics/public');
+export const getDoctorClinics = (doctorId) => fetchJSON(`/clinics/doctor/${doctorId}`);
+export const getClinicStatus = (clinicId) => fetchJSON(`/clinics/${clinicId}/status`);
+
+// Slots
+export const generateSlots = async (data) => {
+  const res = await fetchJSON('/slots/generate', { method: 'POST', body: JSON.stringify(data) });
+  return { data: res };
+};
+export const getPublicSlots = (clinicId, date) => fetchJSON(`/slots/public?clinicId=${clinicId}&date=${date}`);
+
+
+
+// Appointments — always returns { data: [] }
+export const getTodayAppointments = async (clinicId) => {
+  const res = await fetchJSON(`/appointments/today?clinicId=${clinicId}`);
+  return { data: Array.isArray(res) ? res : res?.data || [] };
+};
+export const getUpcomingAppointments = async (clinicId) => {
+  const res = await fetchJSON(`/appointments/upcoming?clinicId=${clinicId}`);
+  return { data: Array.isArray(res) ? res : res?.data || [] };
+};
+
+export const bookAppointmentPublic = (data) => fetchJSON('/appointments/book/public', { method: 'POST', body: JSON.stringify(data) });
+
+
+// Walk-ins — always returns { data: [] }
+export const getTodayWalkIns = async (clinicId) => {
+  const res = await fetchJSON(`/walkins/today?clinicId=${clinicId}`);
+  return { data: Array.isArray(res) ? res : res?.data || [] };
+};
+export const registerWalkIn = (data) => fetchJSON('/walkins/register', { method: 'POST', body: JSON.stringify(data) });
+export const updateWalkInStatus = (id, data) => fetchJSON(`/walkins/${id}/status`, { method: 'PATCH', body: JSON.stringify(data) });
+
+export const insertUrgentPatient = (data) => fetchJSON('/walkins/urgent', { method: 'POST', body: JSON.stringify(data) });
 
 // Doctor
-export const getDoctorProfile = () => api.get('/doctors/profile');
-export const getDoctorClinics = () => api.get('/doctors/clinics');
-export const getTodaySlots = (clinic_id) => api.get(`/doctors/slots/today?clinic_id=${clinic_id}`);
-export const generateSlots = (data) => api.post('/slots/generate', data);
-export const setDoctorStatus = (data) => api.post('/doctors/status', data);
-export const insertUrgentPatient = (data) => api.post('/doctors/urgent', data);
-export const getClinicStatus = (clinic_id) => api.get(`/clinics/${clinic_id}/status`);
-export const announceDelay = (data) => api.post('/appointments/announce-delay', data);
-export const clearDelay = (data) => api.post('/appointments/clear-delay', data);
+export const setDoctorStatus = (data) => fetchJSON('/doctor/status', { method: 'PUT', body: JSON.stringify(data) });
 
-// Appointments
-export const getTodayAppointments = (clinic_id) => api.get(`/appointments/today?clinic_id=${clinic_id}`);
-export const getUpcomingAppointments = (clinic_id) => api.get(`/appointments/upcoming?clinic_id=${clinic_id}`);
-export const bookAppointment = (data) => api.post('/appointments/book', data);
-export const bookAppointmentPublic = (data) => api.post('/appointments/book/public', data);
+// Patients
+export const searchPatient = (query) => fetchJSON(`/patients/search?q=${encodeURIComponent(query)}`);
+export const searchPatientPublic = (query) => fetchJSON(`/patients/search/public?q=${encodeURIComponent(query)}`);
+export const registerPatient = (data) => fetchJSON('/patients/register/public', { method: 'POST', body: JSON.stringify(data) });
 
-// Walk-ins
-export const registerWalkIn = (data) => api.post('/walkins/register', data);
-export const getTodayWalkIns = (clinic_id) => api.get(`/walkins/today?clinic_id=${clinic_id}`);
-export const updateWalkInStatus = (walkin_id, status) => api.patch(`/walkins/${walkin_id}/status`, { status });
+// Consultation & History
+export const saveConsultation = (data) => fetchJSON('/consultations', { method: 'POST', body: JSON.stringify(data) });
+export const getPatientHistory = (patientId) => fetchJSON(`/consultations/patient/${patientId}`);
 
-// Consultation
-export const getPatientHistory = (patient_id) => api.get(`/consultations/history/${patient_id}`);
-export const getPatientHistoryPublic = (patient_id) => api.get(`/consultations/history/public/${patient_id}`);
-export const saveConsultation = (data) => api.post('/consultations/save', data);
+// Prescriptions
+export const getPatientPrescriptions = (patientId) => fetchJSON(`/prescriptions/patient/${patientId}`);
 
-// Prescription
-export const generatePrescription = (data) => api.post('/prescriptions/generate', data);
-export const getDraftPrescriptionByConsultation = (consultation_id) => api.get(`/prescriptions/consultation/${consultation_id}/draft`);
-export const createDraftPrescription = (data) => api.post('/prescriptions/draft', data);
-export const updateDraftPrescription = (prescription_id, data) => api.put(`/prescriptions/${prescription_id}/draft`, data);
-export const finalizePrescription = (prescription_id, data) => api.post(`/prescriptions/${prescription_id}/finalize`, data);
-export const aiAutofillPrescription = (data) => api.post('/prescriptions/ai-autofill', data);
-export const getPrescription = (id) => api.get(`/prescriptions/${id}`);
-export const getPatientPrescriptions = (token) => api.get('/prescriptions', {
-  headers: { Authorization: `Bearer ${token}` },
-});
+// OTP
+export const sendPatientOtp = (phone) => fetchJSON('/auth/send-otp', { method: 'POST', body: JSON.stringify({ phone }) });
+export const verifyPatientOtp = (phone, otp) => fetchJSON('/auth/verify-otp', { method: 'POST', body: JSON.stringify({ phone, otp }) });
+
+// AI
+export const aiAutofillPrescription = (data) => fetchJSON('/prescriptions/ai-autofill', { method: 'POST', body: JSON.stringify(data) });
+
+// Symptoms
+export const getSymptomRecommendation = (data) => fetchJSON('/symptoms/recommend', { method: 'POST', body: JSON.stringify(data) });
 
 // Inventory
-export const getInventory = () => api.get('/inventory');
-export const getLowStock = () => api.get('/inventory/low-stock');
-export const addInventoryItem = (data) => api.post('/inventory/add', data);
-export const updateStock = (item_id, quantity) => api.patch(`/inventory/${item_id}/stock`, { quantity });
+export const getInventory = () => fetchJSON('/inventory');
+export const getLowStock = () => fetchJSON('/inventory/low-stock');
+export const addInventoryItem = (data) => fetchJSON('/inventory', { method: 'POST', body: JSON.stringify(data) });
+export const updateStock = (id, data) => fetchJSON(`/inventory/${id}`, { method: 'PUT', body: JSON.stringify(data) });
 
 // Staff
-export const getAllStaff = (clinic_id) => api.get('/staff', { params: { clinic_id } });
-export const addStaff = (data) => api.post('/staff/add', data);
+export const getAllStaff = () => fetchJSON('/staff');
+export const addStaff = (data) => fetchJSON('/staff', { method: 'POST', body: JSON.stringify(data) });
 
-// Clinics (public)
-export const getPublicClinics = () => api.get('/clinics/public');
-export const getNearbyClinics = (lat, lng, radius = 10) => api.get(`/clinics/public/nearby?lat=${lat}&lng=${lng}&radius=${radius}`);
-export const getPublicSlots = (clinic_id, date) => {
-  const dateQuery = date ? `&date=${date}` : '';
-  return api.get(`/clinics/public/slots/today?clinic_id=${clinic_id}${dateQuery}`);
-};
-export const getPublicClinicStatus = (clinic_id) => api.get(`/clinics/${clinic_id}/status`);
+// Prescription
+export const createDraftPrescription = (data) => fetchJSON('/prescriptions/draft', { method: 'POST', body: JSON.stringify(data) });
+export const updateDraftPrescription = (id, data) => fetchJSON(`/prescriptions/${id}/draft`, { method: 'PUT', body: JSON.stringify(data) });
 
-// GST Verification
-export const verifyGst = (gst_number) => api.post('/gst/verify', { gst_number });
+export const getDraftPrescriptionByConsultation = (consultationId) => fetchJSON(`/prescriptions/consultation/${consultationId}/draft`);
 
-// Medicine
-export const lookupMedicine = (name) => api.post('/medicine/lookup', { name });
+export const finalizePrescription = (id, data) => fetchJSON(`/prescriptions/${id}/finalize`, { method: 'POST', body: JSON.stringify(data) });
 
-// Chatbot
-export const getSymptomRecommendation = (answers) => api.post('/chatbot/symptom', answers);
-
-export default api;
+// Analytics
+export const getAnalytics = (clinicId) => fetchJSON(`/analytics?clinicId=${clinicId}`);

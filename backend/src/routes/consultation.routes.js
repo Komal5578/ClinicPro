@@ -6,5 +6,7 @@ const { authorizeRoles } = require('../middleware/role.middleware');
 
 router.get('/history/:patient_id', authenticate, authorizeRoles('doctor', 'patient'), getPatientHistory);
 router.post('/save', authenticate, authorizeRoles('doctor'), saveConsultation);
+router.get('/patient/:patient_id', authenticate, authorizeRoles('doctor', 'patient'), getPatientHistory);
+router.post('/', authenticate, authorizeRoles('doctor'), saveConsultation);
 
 module.exports = router;

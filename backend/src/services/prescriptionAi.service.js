@@ -97,32 +97,34 @@ const parsePrescriptionFromDictation = async ({ dictationText }) => {
     throw new Error('Missing GROQ_API_KEY in .env');
   }
 
-  const body = {
-    model: process.env.GROQ_MODEL || DEFAULT_MODEL,
-    temperature: 0.1,
-    max_tokens: 1200,
-    messages: [
-      {
-        role: 'user',
-        content: buildPrompt(dictationText),
+  try {
+    const raw = await postJson({
+      hostname: 'api.groq.com',
+      path: '/openai/v1/chat/completions',
+      headers: { Authorization: `Bearer ${GROQ_API_KEY}` },
+      body: {
+        model: process.env.GROQ_MODEL || DEFAULT_MODEL,
+        temperature: 0.1,
+        max_tokens: 1200,
+        messages: [{ role: 'user', content: buildPrompt(dictationText) }],
       },
-    ],
-  };
+    });
 
-  const raw = await postJson({
-    hostname: 'api.groq.com',
-    path: '/openai/v1/chat/completions',
-    headers: { Authorization: `Bearer ${GROQ_API_KEY}` },
-    body,
-  });
+    console.log('GROQ RAW RESPONSE:', JSON.stringify(raw).substring(0, 500));
 
-  const text = raw?.choices?.[0]?.message?.content || '';
-  const parsed = parseJsonFromText(text);
-  if (!parsed || !Array.isArray(parsed.items)) {
-    throw new Error('Unable to parse AI prescription output');
+    const text = raw?.choices?.[0]?.message?.content || '';
+    console.log('GROQ TEXT:', text);
+
+    const parsed = parseJsonFromText(text);
+    if (!parsed || !Array.isArray(parsed.items)) {
+      throw new Error('Unable to parse AI prescription output');
+    }
+
+    return normalizeItems(parsed.items);
+  } catch (err) {
+    console.error('GROQ ERROR:', err.message);
+    throw err;
   }
-
-  return normalizeItems(parsed.items);
 };
 
 module.exports = { parsePrescriptionFromDictation };

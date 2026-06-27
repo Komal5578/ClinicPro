@@ -31,7 +31,6 @@ const DoctorControls = ({ clinicId }) => {
       const tomorrow = new Date();
       tomorrow.setDate(tomorrow.getDate() + 1);
       const dateStr = tomorrow.toISOString().split('T')[0];
-
       await generateSlots({
         clinic_id: clinicId,
         date: dateStr,
@@ -39,7 +38,6 @@ const DoctorControls = ({ clinicId }) => {
         buffer_duration: bufferDur,
         booked_ratio: ratio,
       });
-
       alert(`Slots generated for ${dateStr}`);
     } catch (err) {
       alert(err.response?.data?.message || err.response?.data?.error || 'Failed to generate slots');
@@ -135,10 +133,7 @@ const UrgentPatientForm = ({ clinicId, onClose }) => {
   const [delay, setDelay] = useState(20);
 
   const handleSubmit = async () => {
-    if (!patientId) {
-      alert('Enter patient ID');
-      return;
-    }
+    if (!patientId) { alert('Enter patient ID'); return; }
     try {
       await insertUrgentPatient({
         clinic_id: clinicId,
@@ -146,7 +141,6 @@ const UrgentPatientForm = ({ clinicId, onClose }) => {
         chief_complaint: complaint,
         delay_minutes: delay,
       });
-
       alert(`Urgent patient inserted. All upcoming slots delayed by ${delay} mins.`);
       onClose();
     } catch (err) {
@@ -200,12 +194,11 @@ const Queue = () => {
         getUpcomingAppointments(clinic_id),
         getTodayWalkIns(clinic_id),
       ]);
-      setAppointments(appt.data);
-      setUpcomingAppointments(upcoming.data || []);
-      setWalkIns(wi.data || []);
+      setAppointments(Array.isArray(appt) ? appt : appt?.data || []);
+      setUpcomingAppointments(Array.isArray(upcoming) ? upcoming : upcoming?.data || []);
+      setWalkIns(wi?.data || wi || []);
     } catch (err) {
-      const message = err.response?.data?.message || err.response?.data?.error || 'Failed to load queue data';
-      setLoadError(message);
+      setLoadError(err?.message || 'Failed to load queue data');
       console.error(err);
     } finally {
       setLoading(false);
@@ -218,27 +211,19 @@ const Queue = () => {
     return () => clearInterval(interval);
   }, [clinic_id]);
 
-
- const startConsultation = async (walkin) => {
-  // Try every possible field name your DB might return
-  const pid = walkin.patient_id || walkin.patientId || walkin.pid;
-  
-  if (!pid) {
-    alert('Cannot start consultation: patient ID missing. Check backend query.');
-    console.log('Full walkin object:', JSON.stringify(walkin, null, 2));
-    return;
-  }
-
-  try {
-    setLoadError('');
-    await updateWalkInStatus(walkin.walkin_id, 'IN_CONSULTATION');
-    localStorage.setItem('current_patient_id', pid);
-    navigate(`/doctor/consultation/${pid}`);
-  } catch (err) {
-    const message = err.response?.data?.message || err.response?.data?.error || 'Failed to start consultation';
-    setLoadError(message);
-  }
-};
+  const startConsultation = async (walkin) => {
+    const pid = walkin.patient_id || walkin.patientId || walkin.pid;
+    if (!pid) { alert('Cannot start consultation: patient ID missing.'); return; }
+    try {
+      setLoadError('');
+      await updateWalkInStatus(walkin.walkin_id, { status: 'IN_CONSULTATION' });
+      localStorage.setItem('current_patient_id', pid);
+      localStorage.setItem('current_walkin_id', walkin.walkin_id);
+      navigate(`/doctor/consultation/${pid}`);
+    } catch (err) {
+      setLoadError(err.message || 'Failed to start consultation');
+    }
+  };
 
   const priorityOrder = { URGENT: 0, PRIORITY: 1, REGULAR: 2 };
   const sortedWalkIns = [...walkIns].sort((a, b) =>
@@ -249,21 +234,16 @@ const Queue = () => {
   const inConsult = sortedWalkIns.filter(w => w.status === 'IN_CONSULTATION');
   const done = sortedWalkIns.filter(w => w.status === 'DONE');
 
-  const today = new Date().toLocaleDateString('en-IN', {
-    weekday: 'long', day: 'numeric', month: 'long'
-  });
+  const today = new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' });
 
   return (
     <div className="layout">
       <Sidebar />
       <div className="main-content">
 
-        {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28 }}>
           <div>
-            <h2 style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.4px' }}>
-              Today's Queue
-            </h2>
+            <h2 style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.4px' }}>Today's Queue</h2>
             <p style={{ color: '#64748b', fontSize: 13.5, marginTop: 3 }}>{today}</p>
           </div>
           <button className="btn btn-outline btn-sm" onClick={fetchData} style={{ gap: 5 }}>
@@ -273,14 +253,9 @@ const Queue = () => {
 
         {loadError && (
           <div style={{
-            marginBottom: 16,
-            padding: '10px 14px',
-            borderRadius: 12,
-            background: '#fef2f2',
-            border: '1px solid #fecaca',
-            color: '#991b1b',
-            fontSize: 13,
-            fontWeight: 600,
+            marginBottom: 16, padding: '10px 14px', borderRadius: 12,
+            background: '#fef2f2', border: '1px solid #fecaca',
+            color: '#991b1b', fontSize: 13, fontWeight: 600,
           }}>
             {loadError}
           </div>
@@ -288,7 +263,6 @@ const Queue = () => {
 
         <DoctorControls clinicId={clinic_id} />
 
-        {/* Stats */}
         <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
           <div className="stat-card">
             <div className="stat-label">Waiting</div>
@@ -312,13 +286,9 @@ const Queue = () => {
           </div>
         </div>
 
-        {/* Tabs */}
         <div className="tab-group">
-          <button
-            className={`tab-pill ${activeTab === 'walkins' ? 'active' : ''}`}
-            onClick={() => setActiveTab('walkins')}
-          >
-             Walk-ins
+          <button className={`tab-pill ${activeTab === 'walkins' ? 'active' : ''}`} onClick={() => setActiveTab('walkins')}>
+            Walk-ins
             {waiting.length > 0 && (
               <span style={{
                 background: '#dc2626', color: 'white',
@@ -329,11 +299,8 @@ const Queue = () => {
               </span>
             )}
           </button>
-          <button
-            className={`tab-pill ${activeTab === 'appointments' ? 'active' : ''}`}
-            onClick={() => setActiveTab('appointments')}
-          >
-             Appointments
+          <button className={`tab-pill ${activeTab === 'appointments' ? 'active' : ''}`} onClick={() => setActiveTab('appointments')}>
+            Appointments
           </button>
         </div>
 
@@ -346,25 +313,19 @@ const Queue = () => {
           </div>
         ) : activeTab === 'walkins' ? (
           <div>
-            {/* In consultation */}
             {inConsult.length > 0 && (
               <div style={{ marginBottom: 24 }}>
                 <div style={{ fontSize: 11.5, fontWeight: 700, color: '#2563eb', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>
                   ● Currently Consulting
                 </div>
                 {inConsult.map(w => (
-                  <WalkInCard
-                    key={w.walkin_id}
-                    patient={w}
+                  <WalkInCard key={w.walkin_id} patient={w}
                     onAction={() => navigate(`/doctor/consultation/${w.patient_id}`)}
-                    actionLabel="Continue →"
-                    actionClass="btn-primary"
-                  />
+                    actionLabel="Continue →" actionClass="btn-primary" />
                 ))}
               </div>
             )}
 
-            {/* Waiting */}
             {waiting.length === 0 ? (
               <div className="card">
                 <div className="empty-state">
@@ -379,38 +340,29 @@ const Queue = () => {
                   Waiting · {waiting.length} patient{waiting.length !== 1 ? 's' : ''}
                 </div>
                 {waiting.map(w => (
-                  <WalkInCard
-                    key={w.walkin_id}
-                    patient={w}
+                  <WalkInCard key={w.walkin_id} patient={w}
                     onAction={() => startConsultation(w)}
-                    actionLabel=" Start"
-                    actionClass="btn-success"
-                  />
+                    actionLabel=" Start" actionClass="btn-success" />
                 ))}
               </div>
             )}
 
-            {/* Done */}
             {done.length > 0 && (
               <div style={{ marginTop: 24 }}>
                 <div style={{ fontSize: 11.5, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>
                   Done · {done.length} seen
                 </div>
                 {done.map(w => (
-                  <WalkInCard
-                    key={w.walkin_id}
-                    patient={w}
+                  <WalkInCard key={w.walkin_id} patient={w}
                     onAction={() => navigate(`/doctor/patient/${w.patient_id}`)}
-                    actionLabel="History"
-                    actionClass="btn-outline"
-                    muted
-                  />
+                    actionLabel="History" actionClass="btn-outline" muted />
                 ))}
               </div>
             )}
           </div>
         ) : (
           <div className="card">
+            {/* TODAY'S APPOINTMENTS */}
             {appointments.length === 0 ? (
               <div className="empty-state">
                 <div className="empty-state-icon"></div>
@@ -430,12 +382,12 @@ const Queue = () => {
                     fontFamily: "'JetBrains Mono', monospace",
                     whiteSpace: 'nowrap', minWidth: 62, textAlign: 'center',
                   }}>
-                    {a.slot_start_time?.slice(0, 5)}
+                    {a.slot?.slot_start_time?.slice(0, 5)}
                   </div>
-                  <div className="patient-avatar">{a.patient_name?.[0] || '?'}</div>
+                  <div className="patient-avatar">{a.patient?.name?.[0] || '?'}</div>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 700, fontSize: 14 }}>{a.patient_name}</div>
-                    <div style={{ fontSize: 12, color: '#64748b' }}>Age {a.age} · {a.phone}</div>
+                    <div style={{ fontWeight: 700, fontSize: 14 }}>{a.patient?.name}</div>
+                    <div style={{ fontSize: 12, color: '#64748b' }}>Age {a.patient?.age} · {a.patient?.phone}</div>
                   </div>
                   <span className={`badge ${a.status === 'COMPLETE' ? 'badge-success' : a.status === 'ARRIVED' ? 'badge-warning' : 'badge-primary'}`}>
                     {a.status}
@@ -450,6 +402,7 @@ const Queue = () => {
               ))
             )}
 
+            {/* UPCOMING APPOINTMENTS */}
             <div className="card" style={{ marginTop: 16 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                 <h3 style={{ fontSize: 15, fontWeight: 700 }}>Upcoming Appointments</h3>
@@ -475,14 +428,14 @@ const Queue = () => {
                       fontFamily: "'JetBrains Mono', monospace",
                       whiteSpace: 'nowrap', minWidth: 90, textAlign: 'center',
                     }}>
-                      {a.slot_date ? new Date(a.slot_date).toLocaleDateString() : ''}
+                      {a.slot?.slot_date ? new Date(a.slot.slot_date).toLocaleDateString() : ''}
                       <br />
-                      {a.slot_start_time?.slice(0, 5)}
+                      {a.slot?.slot_start_time?.slice(0, 5)}
                     </div>
-                    <div className="patient-avatar">{a.patient_name?.[0] || '?'}</div>
+                    <div className="patient-avatar">{a.patient?.name?.[0] || '?'}</div>
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: 700, fontSize: 14 }}>{a.patient_name}</div>
-                      <div style={{ fontSize: 12, color: '#64748b' }}>Age {a.age} · {a.phone}</div>
+                      <div style={{ fontWeight: 700, fontSize: 14 }}>{a.patient?.name}</div>
+                      <div style={{ fontSize: 12, color: '#64748b' }}>Age {a.patient?.age} · {a.patient?.phone}</div>
                     </div>
                     <span className={`badge ${a.status === 'COMPLETE' ? 'badge-success' : a.status === 'ARRIVED' ? 'badge-warning' : 'badge-primary'}`}>
                       {a.status}
@@ -500,11 +453,9 @@ const Queue = () => {
 
 const WalkInCard = ({ patient, onAction, actionLabel, actionClass, muted }) => {
   const priorityBorder = patient.priority === 'URGENT' ? '#dc2626' : patient.priority === 'PRIORITY' ? '#d97706' : '#e2e8f0';
-
   return (
     <div className={`queue-item ${patient.priority?.toLowerCase()} ${muted ? 'done' : ''}`}
-      style={{ borderLeftColor: priorityBorder }}
-    >
+      style={{ borderLeftColor: priorityBorder }}>
       <div className="token-badge">W{patient.token_number}</div>
       <div className="patient-avatar">{patient.patient_name?.[0] || '?'}</div>
       <div style={{ flex: 1, minWidth: 0 }}>
@@ -512,9 +463,7 @@ const WalkInCard = ({ patient, onAction, actionLabel, actionClass, muted }) => {
         <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
           Age {patient.age} · {patient.phone}
           {patient.chief_complaint && (
-            <span style={{ marginLeft: 8, color: '#475569' }}>
-              · "{patient.chief_complaint}"
-            </span>
+            <span style={{ marginLeft: 8, color: '#475569' }}>· "{patient.chief_complaint}"</span>
           )}
         </div>
       </div>
@@ -524,9 +473,7 @@ const WalkInCard = ({ patient, onAction, actionLabel, actionClass, muted }) => {
       <span className={`badge ${patient.status === 'WAITING' ? 'badge-warning' : patient.status === 'IN_CONSULTATION' ? 'badge-primary' : 'badge-success'}`}>
         {patient.status?.replace('_', ' ')}
       </span>
-      <button className={`btn ${actionClass} btn-sm`} onClick={onAction}>
-        {actionLabel}
-      </button>
+      <button className={`btn ${actionClass} btn-sm`} onClick={onAction}>{actionLabel}</button>
     </div>
   );
 };

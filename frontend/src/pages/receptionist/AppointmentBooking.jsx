@@ -36,27 +36,26 @@ const AppointmentBooking = () => {
     return () => clearInterval(timer);
   }, [clinic_id]);
 
-  const handleSearch = async () => {
-    if (!searchPhone || searchPhone.length < 10) {
-      setError('Enter a valid 10-digit phone number');
-      return;
-    }
-
-    setError('');
-    try {
-      const res = await searchPatientPublic(searchPhone);
-      setWalkInPatient(res.data);
+const handleSearch = async () => {
+  if (!searchPhone || searchPhone.length < 10) {
+    setError('Enter a valid 10-digit phone number');
+    return;
+  }
+  setError('');
+  try {
+    const res = await searchPatientPublic(searchPhone);
+    setWalkInPatient(res.data);
+    setWalkInForm(f => ({ ...f, phone: searchPhone }));
+    setWalkInStep('add');
+  } catch (err) {
+    if (err.message?.includes('404')) {
       setWalkInForm(f => ({ ...f, phone: searchPhone }));
-      setWalkInStep('add');
-    } catch (err) {
-      if (err.response?.status === 404) {
-        setWalkInForm(f => ({ ...f, phone: searchPhone }));
-        setWalkInStep('register');
-      } else {
-        setError('Patient search failed');
-      }
+      setWalkInStep('register');
+    } else {
+      setError('Patient search failed');
     }
-  };
+  }
+};
 
   const handleRegister = async (e) => {
     e.preventDefault();
@@ -79,36 +78,37 @@ const AppointmentBooking = () => {
   };
 
   const handleAddWalkIn = async () => {
-    if (!walkInPatient?.patient_id) {
-      setError('Select or register a patient first');
-      return;
-    }
+  if (!walkInPatient?.patient_id) {
+    setError('Select or register a patient first');
+    return;
+  }
 
-    setLoading(true);
-    setError('');
-    try {
-      await registerWalkIn({
-        patient_id: walkInPatient.patient_id,
-        clinic_id,
-        priority: walkInForm.priority,
-        chief_complaint: walkInForm.chief_complaint,
-      });
-      setSuccess('Walk-in added to queue');
-      setWalkInStep('search');
-      setWalkInPatient(null);
-      setWalkInForm({ name: '', age: '', phone: '', email: '', priority: 'REGULAR', chief_complaint: '' });
-      setSearchPhone('');
-      fetchData();
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to add walk-in');
-    } finally {
-      setLoading(false);
-    }
-  };
+  setLoading(true);
+  setError('');
+  try {
+    await registerWalkIn({
+      patient_id: walkInPatient.patient_id,
+      doctor_id: user?.id || 1,  // ← add this
+      clinic_id,
+      priority: walkInForm.priority,
+      chief_complaint: walkInForm.chief_complaint,
+    });
+    setSuccess('Walk-in added to queue');
+    setWalkInStep('search');
+    setWalkInPatient(null);
+    setWalkInForm({ name: '', age: '', phone: '', email: '', priority: 'REGULAR', chief_complaint: '' });
+    setSearchPhone('');
+    fetchData();
+  } catch (err) {
+    setError(err.message?.includes('500') ? 'Failed to add walk-in' : err.message);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const markArrived = async (appointmentId) => {
     try {
-      await updateWalkInStatus(appointmentId, 'ARRIVED');
+      await updateWalkInStatus(appointmentId, { status: 'ARRIVED' });
       fetchData();
     } catch (err) {
       console.error(err);

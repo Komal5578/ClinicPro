@@ -59,7 +59,7 @@ const generateSlotRows = (params) => {
           slot_type: slotType,
           status: 'OPEN',
           token_number: token,
-          appointment_group_id: `${slotStartTime}-${slotType}`, // Group tokens by appointment
+      
         });
         token += 1;
       }
@@ -149,5 +149,28 @@ const generateSlots = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+const getPublicSlots = async (req, res) => {
+  const { clinicId, clinic_id, date } = req.query;
+  const id = clinicId || clinic_id;
+  const slotDate = date || new Date().toISOString().split('T')[0];
 
-module.exports = { generateSlots };
+  if (!id) return res.status(400).json({ message: 'clinicId is required' });
+
+  try {
+    const supabase = require('../config/supabase');
+    const { data, error } = await supabase
+      .from('slot')
+      .select('slot_id, clinic_id, slot_date, slot_start_time, slot_type, status, token_number')
+      .eq('clinic_id', id)
+      .eq('slot_date', slotDate)
+      .order('slot_start_time');
+
+    if (error) throw error;
+    res.json(data || []);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+};
+
+module.exports = { generateSlots, getPublicSlots };
+

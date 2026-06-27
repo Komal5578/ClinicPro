@@ -4,5 +4,6 @@ frontend/node_modules/
 backend/.env
 frontend/.env
 .env
-# Ignore any generated SQL output or schema files
+backend/generated/
+backend/console.log*
 database/schema/*.sql

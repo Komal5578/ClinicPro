@@ -1,116 +1,101 @@
-const db = require('../config/db');
+const { createClient } = require('@supabase/supabase-js');
+const ws = require('ws');
 
-// Get today's appointments
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_ANON_KEY,
+  { realtime: { transport: ws } }
+);
+
 const getTodayAppointments = async (req, res) => {
-  const { clinic_id } = req.query;
+  const { clinicId } = req.query;
+  const today = new Date().toISOString().split('T')[0];
   try {
-    const [rows] = await db.query(
-      `SELECT a.appointment_id, a.status, a.booked_at,
-              p.name as patient_name, p.phone, p.age,
-              s.slot_start_time, s.slot_date, s.slot_type, s.token_number
-       FROM Appointment a
-       JOIN Patient p ON a.patient_id = p.patient_id
-       JOIN Slot s ON a.slot_id = s.slot_id
-       WHERE a.clinic_id = ? AND s.slot_date = CURDATE()
-       ORDER BY s.token_number ASC, s.slot_start_time ASC`,
-      [clinic_id]
-    );
-    res.json(rows);
+    const { data, error } = await supabase
+      .from('appointment')
+      .select(`
+        appointment_id, status, booked_at, patient_id,
+          patient:patient_id(name, phone, age),
+          slot:slot_id(slot_start_time, slot_date, slot_type, token_number)
+      `)
+      .eq('clinic_id', clinicId)
+      .order('appointment_id', { ascending: true });
+
+    if (error) throw error;
+
+    // Filter today's slots in JS since Supabase can't filter on joined table easily
+    const todayData = (data || []).filter(a => a.slot?.slot_date === today);
+    res.json(todayData);
   } catch (err) {
-      console.error('TODAY APPOINTMENTS ERROR:', err.message);
+    console.error('TODAY APPOINTMENTS ERROR:', err.message);
     res.status(500).json({ message: 'Server error', error: err.message });
   }
 };
 
-// Get upcoming appointments from today onward
 const getUpcomingAppointments = async (req, res) => {
-  const { clinic_id } = req.query;
+  const { clinicId } = req.query;
+  const today = new Date().toISOString().split('T')[0];
   try {
-    const [rows] = await db.query(
-      `SELECT a.appointment_id, a.status, a.booked_at,
-              p.name as patient_name, p.phone, p.age,
-              s.slot_start_time, s.slot_date, s.slot_type, s.token_number
-       FROM Appointment a
-       JOIN Patient p ON a.patient_id = p.patient_id
-       JOIN Slot s ON a.slot_id = s.slot_id
-       WHERE a.clinic_id = ? AND s.slot_date >= CURDATE()
-       ORDER BY s.slot_date ASC, s.token_number ASC, s.slot_start_time ASC`,
-      [clinic_id]
-    );
-    res.json(rows);
+    const { data, error } = await supabase
+      .from('appointment')
+      .select(`
+         appointment_id, status, booked_at, patient_id,
+          patient:patient_id(name, phone, age),
+          slot:slot_id(slot_start_time, slot_date, slot_type, token_number)
+      `)
+      .eq('clinic_id', clinicId)
+      .order('appointment_id', { ascending: true });
+
+    if (error) throw error;
+
+                const upcoming = (data || []).filter(a => 
+          a.slot?.slot_date > today && a.status === 'SCHEDULED'
+        );
+    res.json(upcoming);
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
 };
 
-const resolveDoctorForClinic = async (clinic_id) => {
-  const [rows] = await db.query(
-    `SELECT dc.doctor_id
-     FROM DoctorClinic dc
-     WHERE dc.clinic_id = ?
-     ORDER BY dc.doctor_id ASC
-     LIMIT 1`,
-    [clinic_id]
-  );
-
-  if (rows.length > 0) {
-    return rows[0].doctor_id;
-  }
-
-  const [clinicRows] = await db.query('SELECT doctor_id FROM Clinic WHERE clinic_id = ?', [clinic_id]);
-  return clinicRows[0]?.doctor_id || null;
-};
-
-// Book appointment using stored procedure
-const bookAppointment = async (req, res) => {
-  const { slot_id, patient_id, doctor_id, clinic_id } = req.body;
-  try {
-    await db.query('CALL book_appointment(?, ?, ?, ?, @appt_id, @msg)',
-      [slot_id, patient_id, doctor_id, clinic_id]
-    );
-    const [[result]] = await db.query('SELECT @appt_id as appointment_id, @msg as message');
-
-    if (result.message !== 'SUCCESS') {
-      return res.status(400).json({ message: result.message });
-    }
-
-    res.status(201).json({
-      message: 'Appointment booked',
-      appointment_id: result.appointment_id
-    });
-  } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err.message });
-  }
-};
-
-// Public booking for patient-facing pages
 const bookAppointmentPublic = async (req, res) => {
   const { slot_id, patient_id, clinic_id } = req.body;
-
-  if (!slot_id || !patient_id || !clinic_id) {
+  if (!slot_id || !patient_id || !clinic_id)
     return res.status(400).json({ message: 'slot_id, patient_id, and clinic_id are required' });
-  }
 
   try {
-    const doctorId = await resolveDoctorForClinic(clinic_id);
-    if (!doctorId) {
+    // Find doctor for clinic
+    const { data: dcRows } = await supabase
+      .from('doctor_clinic')
+      .select('doctor_id')
+      .eq('clinic_id', clinic_id)
+      .limit(1);
+
+    const doctor_id = dcRows?.[0]?.doctor_id;
+    if (!doctor_id)
       return res.status(404).json({ message: 'No doctor linked to this clinic' });
-    }
 
-    await db.query('CALL book_appointment(?, ?, ?, ?, @appt_id, @msg)',
-      [slot_id, patient_id, doctorId, clinic_id]
-    );
-    const [[result]] = await db.query('SELECT @appt_id as appointment_id, @msg as message');
+    // Check slot is open
+    const { data: slot } = await supabase
+      .from('slot')
+      .select('*')
+      .eq('slot_id', slot_id)
+      .single();
 
-    if (result.message !== 'SUCCESS') {
-      return res.status(400).json({ message: result.message });
-    }
+    if (!slot || slot.status !== 'OPEN')
+      return res.status(400).json({ message: 'Slot not available' });
 
-    res.status(201).json({
-      message: 'Appointment booked',
-      appointment_id: result.appointment_id,
-      doctor_id: doctorId,
-    });
+    // Book it
+    const { data: appt, error } = await supabase
+      .from('appointment')
+      .insert({ slot_id, patient_id, doctor_id, clinic_id, status: 'SCHEDULED' })
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    await supabase.from('slot').update({ status: 'BOOKED' }).eq('slot_id', slot_id);
+
+    res.status(201).json({ message: 'Appointment booked', appointment_id: appt.appointment_id });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
@@ -119,28 +104,15 @@ const bookAppointmentPublic = async (req, res) => {
 const announceDelay = async (req, res) => {
   const { clinic_id, delay_minutes, message } = req.body || {};
   if (!clinic_id) return res.status(400).json({ message: 'clinic_id is required' });
-
   const delay = Number(delay_minutes) || 0;
   try {
-    await db.query(
-      `UPDATE Clinic
-       SET is_delayed = 1,
-           delay_minutes = ?,
-           delay_message = ?,
-           delay_announced_at = NOW()
-       WHERE clinic_id = ?`,
-      [delay, message || `Doctor is running approximately ${delay} minutes late.`, clinic_id]
-    );
-
-    if (delay > 0) {
-      await db.query(
-        `UPDATE Slot
-         SET slot_start_time = ADDTIME(slot_start_time, SEC_TO_TIME(? * 60))
-         WHERE clinic_id = ? AND slot_date = CURDATE() AND status IN ('OPEN', 'BOOKED')`,
-        [delay, clinic_id]
-      );
-    }
-
+    const { error } = await supabase.from('clinic').update({
+      is_delayed: true,
+      delay_minutes: delay,
+      delay_message: message || `Doctor is running approximately ${delay} minutes late.`,
+      delay_announced_at: new Date().toISOString(),
+    }).eq('clinic_id', clinic_id);
+    if (error) throw error;
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
@@ -150,21 +122,16 @@ const announceDelay = async (req, res) => {
 const clearDelay = async (req, res) => {
   const { clinic_id } = req.body || {};
   if (!clinic_id) return res.status(400).json({ message: 'clinic_id is required' });
-
   try {
-    await db.query(
-      `UPDATE Clinic
-       SET is_delayed = 0,
-           delay_minutes = 0,
-           delay_message = NULL,
-           delay_announced_at = NULL
-       WHERE clinic_id = ?`,
-      [clinic_id]
-    );
+    const { error } = await supabase.from('clinic').update({
+      is_delayed: false, delay_minutes: 0,
+      delay_message: null, delay_announced_at: null,
+    }).eq('clinic_id', clinic_id);
+    if (error) throw error;
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
 };
 
-module.exports = { getTodayAppointments, getUpcomingAppointments, bookAppointment, bookAppointmentPublic, announceDelay, clearDelay };
+module.exports = { getTodayAppointments, getUpcomingAppointments, bookAppointmentPublic, announceDelay, clearDelay };

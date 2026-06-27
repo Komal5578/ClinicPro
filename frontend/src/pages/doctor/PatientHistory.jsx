@@ -76,8 +76,8 @@ const PatientHistory = () => {
             <div className="grid-2">
               {/* Past Consultations */}
               <div className="card">
-                <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 16 }}> Last 3 Consultations</h3>
-                {data?.consultations?.length === 0 ? (
+                <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 16 }}>Last 3 Consultations</h3>
+                {!data?.consultations?.length ? (
                   <div className="empty-state"><p>No consultations yet</p></div>
                 ) : (
                   data.consultations.map(c => (
@@ -92,7 +92,7 @@ const PatientHistory = () => {
                       <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>{c.diagnosis_note}</div>
                       {c.followup_date && (
                         <div style={{ fontSize: 12, color: 'var(--primary)', marginTop: 6 }}>
-                           Follow-up: {new Date(c.followup_date).toLocaleDateString('en-IN')}
+                          Follow-up: {new Date(c.followup_date).toLocaleDateString('en-IN')}
                         </div>
                       )}
                     </div>
@@ -102,8 +102,8 @@ const PatientHistory = () => {
 
               {/* Past Prescriptions */}
               <div className="card">
-                <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 16 }}> Prescription History</h3>
-                {data?.prescriptions?.length === 0 ? (
+                <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 16 }}>Prescription History</h3>
+                {!data?.prescriptions?.length ? (
                   <div className="empty-state"><p>No prescriptions yet</p></div>
                 ) : (
                   data.prescriptions.map((p, i) => (

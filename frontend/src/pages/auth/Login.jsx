@@ -9,32 +9,34 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const { loginUser } = useAuth();
   const navigate = useNavigate();
+
   const roles = [
-  {
-    id: 'DOCTOR',
-    label: 'Doctor',
-    desc: 'Consult & manage patients',
-    icon: '‍',
-    color: '#2563eb',
-    bg: '#eff6ff',
-  },
-  {
-    id: 'RECEPTIONIST',
-    label: 'Receptionist',
-    desc: 'Manage appointments & walk-ins',
-    icon: '‍',
-    color: '#059669',
-    bg: '#d1fae5',
-  },
-  {
-    id: 'PATIENT',
-    label: 'Patient',
-    desc: 'Book appointments & view records',
-    icon: '',
-    color: '#7c3aed',
-    bg: '#ede9fe',
-  },
-];
+    {
+      id: 'DOCTOR',
+      label: 'Doctor',
+      desc: 'Consult & manage patients',
+      icon: '‍',
+      color: '#2563eb',
+      bg: '#eff6ff',
+    },
+    {
+      id: 'RECEPTIONIST',
+      label: 'Receptionist',
+      desc: 'Manage appointments & walk-ins',
+      icon: '‍',
+      color: '#059669',
+      bg: '#d1fae5',
+    },
+    {
+      id: 'PATIENT',
+      label: 'Patient',
+      desc: 'Book appointments & view records',
+      icon: '',
+      color: '#7c3aed',
+      bg: '#ede9fe',
+    },
+  ];
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.role) { setError('Please select a role first'); return; }
@@ -43,11 +45,12 @@ const Login = () => {
     setLoading(true);
     try {
       const res = await login({ ...form, role: form.role.toLowerCase() });
-      loginUser(res.data.user, res.data.token);
-      if (res.data.user.role === 'doctor') navigate('/doctor/queue');
+      // api.js uses fetch (not axios), so response is plain object — no .data wrapper
+      loginUser(res.user, res.token);
+      if (res.user.role === 'doctor') navigate('/doctor/queue');
       else navigate('/receptionist/dashboard');
     } catch (err) {
-      setError(err.response?.data?.message || 'Login failed. Check your credentials.');
+      setError(err.message || 'Login failed. Check your credentials.');
     } finally {
       setLoading(false);
     }
@@ -65,14 +68,10 @@ const Login = () => {
       padding: '24px',
       fontFamily: "'Plus Jakarta Sans', sans-serif",
     }}>
-      {/* Left: branding */}
-      <div style={{ flex: 1, maxWidth: 480, paddingRight: 48, display: 'none' }} className="login-left" />
-
       <div style={{ width: '100%', maxWidth: 920, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 48, alignItems: 'center' }}>
 
         {/* Left side - hero */}
         <div style={{ padding: '16px 0' }}>
-          {/* Logo */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 40 }}>
             <div style={{
               width: 38, height: 38,
@@ -104,7 +103,6 @@ const Login = () => {
             Manage appointments, consultations, prescriptions, inventory and more — all in one platform built for Indian clinics.
           </p>
 
-          {/* Stats */}
           <div style={{ display: 'flex', gap: 32 }}>
             {[
               { val: '1200+', label: 'Appointments Today' },
@@ -130,7 +128,6 @@ const Login = () => {
           <h2 style={{ fontSize: 20, fontWeight: 800, color: '#0f172a', marginBottom: 4 }}>Welcome back </h2>
           <p style={{ color: '#64748b', fontSize: 13.5, marginBottom: 28 }}>Select your role and sign in</p>
 
-          {/* Role cards */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 24 }}>
             {roles.map(role => (
               <div
@@ -198,7 +195,6 @@ const Login = () => {
             ))}
           </div>
 
-          {/* Email + password only when doctor/receptionist selected */}
           {(form.role === 'DOCTOR' || form.role === 'RECEPTIONIST') && (
             <form onSubmit={handleSubmit} style={{ animation: 'fadeUp 0.2s ease' }}>
               {error && (
@@ -209,7 +205,7 @@ const Login = () => {
                   border: '1px solid #fecaca',
                   display: 'flex', alignItems: 'center', gap: 6,
                 }}>
-                   {error}
+                  {error}
                 </div>
               )}
 
@@ -223,7 +219,7 @@ const Login = () => {
                     border: '1.5px solid #e2e8f0', borderRadius: 9,
                     fontSize: 14, fontFamily: 'Plus Jakarta Sans, sans-serif',
                     outline: 'none', transition: 'border-color 0.15s',
-                    color: '#0f172a',
+                    color: '#0f172a', boxSizing: 'border-box',
                   }}
                   type="email"
                   placeholder="you@clinic.com"
@@ -245,7 +241,7 @@ const Login = () => {
                     border: '1.5px solid #e2e8f0', borderRadius: 9,
                     fontSize: 14, fontFamily: 'Plus Jakarta Sans, sans-serif',
                     outline: 'none', transition: 'border-color 0.15s',
-                    color: '#0f172a',
+                    color: '#0f172a', boxSizing: 'border-box',
                   }}
                   type="password"
                   placeholder="••••••••"
@@ -286,7 +282,7 @@ const Login = () => {
                 border: '1px solid #f1f5f9',
               }}>
                 <strong style={{ color: '#475569' }}>Demo:</strong>{' '}
-                Doctor → rahul@clinic.com / password
+                Doctor → rahul@clinic.com / 123456
               </div>
             </form>
           )}
@@ -301,7 +297,6 @@ const Login = () => {
         </div>
       </div>
 
-      {/* Responsive single column */}
       <style>{`
         @media (max-width: 760px) {
           div[style*="grid-template-columns: 1fr 1fr"] {

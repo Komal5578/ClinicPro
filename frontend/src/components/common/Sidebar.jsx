@@ -1,11 +1,11 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { getDoctorClinics } from '../../services/api';
+import { getDoctorClinics, getPublicClinics } from '../../services/api';
 
 const doctorLinks = [
   { to: '/doctor/queue', icon: '', label: 'Queue' },
-  { to: '/doctor/setup-slots', icon: '', label: 'Tomorrow\'s Slots' },
+  { to: '/doctor/setup-slots', icon: '', label: "Tomorrow's Slots" },
   { to: '/doctor/staff', icon: '', label: 'Manage Staff' },
   { to: '/doctor/followup', icon: '', label: 'Follow-ups' },
   { to: '/doctor/analytics', icon: '', label: 'Analytics' },
@@ -21,34 +21,44 @@ const receptionistLinks = [
 
 const Sidebar = () => {
   const {
-    user,
-    logout,
-    selectedClinicId,
-    setSelectedClinicId,
-    doctorClinics,
-    setDoctorClinics,
+    user, logout, selectedClinicId, setSelectedClinicId,
+    doctorClinics, setDoctorClinics,
   } = useAuth();
   const navigate = useNavigate();
+  const [clinicName, setClinicName] = useState('');
 
   useEffect(() => {
     const loadClinics = async () => {
-      if (user?.role !== 'doctor') return;
-      try {
-        const res = await getDoctorClinics();
-        const clinics = res.data || [];
-        setDoctorClinics(clinics);
-        if (!selectedClinicId && clinics.length > 0) {
-          const firstClinicId = clinics[0].clinic_id;
-          setSelectedClinicId(firstClinicId);
-          localStorage.setItem('selected_clinic_id', String(firstClinicId));
+      if (user?.role === 'doctor') {
+        if (!user?.id) return;
+        try {
+          const res = await getDoctorClinics(user.id);
+          const clinics = Array.isArray(res) ? res : res?.data || [];
+          setDoctorClinics(clinics);
+          if (!selectedClinicId && clinics.length > 0) {
+            const firstClinicId = clinics[0].clinic_id;
+            setSelectedClinicId(firstClinicId);
+            localStorage.setItem('selected_clinic_id', String(firstClinicId));
+          }
+        } catch (err) {
+          console.error('Failed to load doctor clinics', err);
         }
-      } catch (err) {
-        console.error('Failed to load doctor clinics', err);
+      }
+
+      if (user?.role === 'receptionist' && user?.clinic_id) {
+        try {
+          const res = await getPublicClinics();
+          const clinics = Array.isArray(res) ? res : res?.data || [];
+          const clinic = clinics.find(c => c.clinic_id === user.clinic_id);
+          if (clinic) setClinicName(clinic.clinic_name);
+        } catch (err) {
+          console.error('Failed to load clinic name', err);
+        }
       }
     };
 
     loadClinics();
-  }, [user?.role]);
+  }, [user?.role, user?.id, user?.clinic_id]);
 
   const handleLogout = () => {
     logout();
@@ -64,11 +74,11 @@ const Sidebar = () => {
 
   return (
     <div className="sidebar">
-      {/* Logo */}
       <div className="sidebar-logo">
         <h1>Clinic<span>Pro</span></h1>
         <div className="sidebar-role" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <span>{user?.role === 'doctor' ? '🩺 Doctor Portal' : ' Reception Portal'}</span>
+          <span>{user?.role === 'doctor' ? '🩺 Doctor Portal' : '🏥 Reception Portal'}</span>
+
           {user?.role === 'doctor' && currentClinic && (
             doctorClinics.length > 1 ? (
               <select
@@ -95,10 +105,15 @@ const Sidebar = () => {
               </div>
             )
           )}
+
+          {user?.role === 'receptionist' && clinicName && (
+            <div style={{ marginTop: 4, fontSize: 12, color: '#94a3b8', fontWeight: 600 }}>
+              📍 {clinicName}
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Nav */}
       <nav>
         <div className="sidebar-section-label">Navigation</div>
         {links.map(link => (
@@ -113,7 +128,6 @@ const Sidebar = () => {
         ))}
       </nav>
 
-      {/* Bottom user section */}
       <div className="sidebar-bottom">
         <div className="sidebar-user">
           <div className="sidebar-user-avatar">{initial}</div>

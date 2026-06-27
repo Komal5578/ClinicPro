@@ -14,8 +14,10 @@ if (!supabaseUrl || !supabaseAnonKey) {
   process.exit(1);
 }
 
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
+const ws = require('ws');
+const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  realtime: { transport: ws }
+});
 // Database wrapper for compatibility with existing code
 const db = {
   async query(sql, params = []) {
@@ -92,47 +94,106 @@ const db = {
       .replace(/^_/, '');
   },
 
-  async handleSelect(sql, params) {
-    try {
-      const fromMatch = sql.match(/FROM\s+`?([a-zA-Z_]+)`?/i);
-      if (!fromMatch) {
-        throw new Error('Could not parse table from SELECT query');
-      }
-
-      const tableName = this.normalizeTableName(fromMatch[1]);
-      let query = supabase.from(tableName).select('*');
-
-      // Parse WHERE clause
-      const whereMatch = sql.match(/WHERE\s+(.+?)(?:\s+ORDER|\s+LIMIT|\s+GROUP|$)/i);
-      if (whereMatch && params.length > 0) {
-        query = this.addWhereConditions(query, whereMatch[1], params);
-      }
-
-      // Parse ORDER BY
-      const orderMatch = sql.match(/ORDER\s+BY\s+([^;]+?)(?:\s+LIMIT|$)/i);
-      if (orderMatch) {
-        query = this.addOrderBy(query, orderMatch[1]);
-      }
-
-      // Parse LIMIT
-      const limitMatch = sql.match(/LIMIT\s+(\d+)(?:\s+OFFSET\s+(\d+))?/i);
-      if (limitMatch) {
-        const limit = parseInt(limitMatch[1]);
-        const offset = limitMatch[2] ? parseInt(limitMatch[2]) : 0;
-        query = query.limit(limit);
-        if (offset > 0) query = query.range(offset, offset + limit - 1);
-      }
-
-      const { data, error } = await query;
-      if (error) throw error;
-
-      return [data || [], []];
-    } catch (error) {
-      console.error('SELECT error:', error);
-      throw error;
+ async handleSelect(sql, params) {
+  try {
+    const upperSql = sql.toUpperCase();
+    
+    // If query has JOINs, use Supabase foreign key relationships
+    if (upperSql.includes('JOIN')) {
+      return await this.handleJoinSelect(sql, params);
     }
-  },
 
+    const fromMatch = sql.match(/FROM\s+`?([a-zA-Z_]+)`?/i);
+    if (!fromMatch) throw new Error('Could not parse table from SELECT query');
+
+    const tableName = this.normalizeTableName(fromMatch[1]);
+    let query = supabase.from(tableName).select('*');
+
+    const whereMatch = sql.match(/WHERE\s+(.+?)(?:\s+ORDER|\s+LIMIT|\s+GROUP|$)/i);
+    if (whereMatch && params.length > 0) {
+      query = this.addWhereConditions(query, whereMatch[1], params);
+    }
+
+    const orderMatch = sql.match(/ORDER\s+BY\s+([^;]+?)(?:\s+LIMIT|$)/i);
+    if (orderMatch) query = this.addOrderBy(query, orderMatch[1]);
+
+    const limitMatch = sql.match(/LIMIT\s+(\d+)(?:\s+OFFSET\s+(\d+))?/i);
+    if (limitMatch) {
+      const limit = parseInt(limitMatch[1]);
+      const offset = limitMatch[2] ? parseInt(limitMatch[2]) : 0;
+      query = query.limit(limit);
+      if (offset > 0) query = query.range(offset, offset + limit - 1);
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+    return [data || [], []];
+  } catch (error) {
+    console.error('SELECT error:', error);
+    throw error;
+  }
+},
+
+async handleJoinSelect(sql, params) {
+  try {
+    const fromMatch = sql.match(/FROM\s+`?([a-zA-Z_]+)`?\s+(?:AS\s+)?([a-zA-Z])?/i);
+    if (!fromMatch) throw new Error('Could not parse table from JOIN query');
+
+    const tableName = this.normalizeTableName(fromMatch[1]);
+
+    // Build select string from JOIN tables
+    // Extract all joined tables and build Supabase nested select
+    const joinMatches = [...sql.matchAll(/JOIN\s+`?([a-zA-Z_]+)`?\s+(?:ON\s+[^\s]+\s*=\s*[^\s]+)?/gi)];
+    const joinedTables = joinMatches.map(m => this.normalizeTableName(m[1]));
+
+    // Use wildcard with joined tables as nested selects
+    const selectStr = ['*', ...joinedTables.map(t => `${t}(*)`)].join(', ');
+
+    let query = supabase.from(tableName).select(selectStr);
+
+    // Apply WHERE
+    const whereMatch = sql.match(/WHERE\s+(.+?)(?:\s+ORDER|\s+LIMIT|\s+GROUP|$)/i);
+    if (whereMatch && params.length > 0) {
+      query = this.addWhereConditions(query, whereMatch[1], params);
+    }
+
+    // Apply ORDER BY
+    const orderMatch = sql.match(/ORDER\s+BY\s+([^;]+?)(?:\s+LIMIT|$)/i);
+    if (orderMatch) query = this.addOrderBy(query, orderMatch[1]);
+
+    // Apply LIMIT
+    const limitMatch = sql.match(/LIMIT\s+(\d+)/i);
+    if (limitMatch) query = query.limit(parseInt(limitMatch[1]));
+
+    const { data, error } = await query;
+    if (error) {
+      // Fallback: if nested select fails (no FK relationship), just select from main table
+      console.warn('JOIN select failed, falling back to main table only:', error.message);
+      const { data: fallbackData, error: fallbackError } = await supabase
+        .from(tableName)
+        .select('*');
+      if (fallbackError) throw fallbackError;
+      return [fallbackData || [], []];
+    }
+
+    // Flatten joined data into each row (mimic MySQL JOIN behaviour)
+    const flattened = (data || []).map(row => {
+      const flat = { ...row };
+      joinedTables.forEach(t => {
+        if (flat[t] && typeof flat[t] === 'object' && !Array.isArray(flat[t])) {
+          Object.assign(flat, flat[t]);
+          delete flat[t];
+        }
+      });
+      return flat;
+    });
+
+    return [flattened, []];
+  } catch (error) {
+    console.error('JOIN SELECT error:', error);
+    throw error;
+  }
+},
   addWhereConditions(query, whereClause, params) {
     try {
       let paramIndex = 0;

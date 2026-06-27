@@ -1,5 +1,4 @@
-CREATE DATABASE IF NOT EXISTS clinic_db;
-USE clinic_db;
+
 
 CREATE TABLE Patient (
   patient_id    INT AUTO_INCREMENT PRIMARY KEY,

@@ -10,23 +10,23 @@ const Analytics = () => {
   const [walkIns, setWalkIns] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [appt, wi] = await Promise.all([
-          getTodayAppointments(clinic_id),
-          getTodayWalkIns(clinic_id),
-        ]);
-        setAppointments(appt.data);
-        setWalkIns(wi.data);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
-  }, [clinic_id]);
+ useEffect(() => {
+  const fetchData = async () => {
+    try {
+      const [appt, wi] = await Promise.all([
+        getTodayAppointments(clinic_id),
+        getTodayWalkIns(clinic_id),
+      ]);
+      setAppointments(Array.isArray(appt) ? appt : appt?.data || []);
+      setWalkIns(Array.isArray(wi) ? wi : wi?.data || []);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+  fetchData();
+}, [clinic_id]);
 
   const total = appointments.length + walkIns.length;
   const completed = [

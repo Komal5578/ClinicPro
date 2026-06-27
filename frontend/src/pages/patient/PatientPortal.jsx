@@ -48,14 +48,15 @@ const PatientPortal = () => {
   }, []);
 
   const fetchClinics = async () => {
-    try {
-      const res = await getPublicClinics();
-      setClinics(Array.isArray(res.data) ? res.data : []);
-    } catch (err) {
-      console.error('Failed to fetch clinics:', err);
-      setClinics([]);
-    }
-  };
+  try {
+    const res = await getPublicClinics();
+    const data = Array.isArray(res) ? res : res?.data || [];
+    setClinics(data);
+  } catch (err) {
+    console.error('Failed to fetch clinics:', err);
+    setClinics([]);
+  }
+};
 
   const handleChatbotRecommend = (sector) => {
     if (sector) {

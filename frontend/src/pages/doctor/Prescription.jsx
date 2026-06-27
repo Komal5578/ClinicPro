@@ -99,7 +99,7 @@ const Prescription = () => {
           doctor_id: user.id,
           items,
         });
-        setDraftId(res.data.prescription_id);
+        setDraftId(res.prescription_id || res.data?.prescription_id);
       }
       setInfo('Draft saved. You can keep editing before final PDF generation.');
     } catch (err) {
@@ -109,34 +109,39 @@ const Prescription = () => {
     }
   };
 
-  const handleFinalize = async () => {
-    if (!validateItems()) return;
+const handleFinalize = async () => {
+  if (!validateItems()) return;
 
-    setLoading(true);
-    setError('');
-    try {
-      let finalDraftId = draftId;
+  setLoading(true);
+  setError('');
+  try {
+    let finalDraftId = draftId;
 
-      if (!finalDraftId) {
-        const draftRes = await createDraftPrescription({
-          consultation_id,
-          patient_id: patient_id || 1,
-          doctor_id: user.id,
-          items,
-        });
-        finalDraftId = draftRes.data.prescription_id;
-        setDraftId(finalDraftId);
-      }
-
-      const res = await finalizePrescription(finalDraftId, { items });
-      setPdfUrl(res.data.pdf_url || '');
-      setSuccess(true);
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to finalize prescription');
-    } finally {
-      setLoading(false);
+    if (!finalDraftId) {
+      const draftRes = await createDraftPrescription({
+        consultation_id,
+        patient_id: patient_id || 1,
+        doctor_id: user.id,
+        items,
+      });
+      finalDraftId = draftRes.prescription_id || draftRes.data?.prescription_id;
+      setDraftId(finalDraftId);
     }
-  };
+
+    const res = await finalizePrescription(finalDraftId, { items });
+    setPdfUrl(res.pdf_url || res.data?.pdf_url || '');
+    
+    // ← Clear localStorage after finalization
+    localStorage.removeItem('current_walkin_id');
+    localStorage.removeItem('current_patient_id');
+    
+    setSuccess(true);
+  } catch (err) {
+    setError(err.message || err.response?.data?.message || 'Failed to finalize prescription');
+  } finally {
+    setLoading(false);
+  }
+};
 
   const startVoiceDictation = () => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -211,35 +216,37 @@ const Prescription = () => {
     };
   };
 
-  const handleAiAutofill = async () => {
-    if (!String(dictationText || '').trim()) {
-      setError('Please dictate or type prescription text first');
-      return;
-    }
+const handleAiAutofill = async () => {
+  if (!String(dictationText || '').trim()) {
+    setError('Please dictate or type prescription text first');
+    return;
+  }
 
-    setAiLoading(true);
-    setError('');
-    try {
-      const res = await aiAutofillPrescription({ dictation_text: dictationText });
-      const aiItems = Array.isArray(res.data?.items) ? res.data.items : [];
-      if (!aiItems.length) {
-        setError('AI could not detect medicines from dictation. Please edit manually.');
-      } else {
-        setItems(aiItems.map((item) => ({
-          medicine_name: item.medicine_name || '',
-          dosage: item.dosage || '',
-          frequency: item.frequency || '',
-          duration_days: item.duration_days || '',
-          notes: item.notes || '',
-        })));
-        setInfo('Form auto-filled from doctor dictation. Please verify and save draft/finalize.');
-      }
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to auto-fill prescription using AI');
-    } finally {
-      setAiLoading(false);
+  setAiLoading(true);
+  setError('');
+  try {
+    const res = await aiAutofillPrescription({ dictation_text: dictationText });
+    // res is the raw response, not res.data
+    const aiItems = Array.isArray(res?.items) ? res.items : 
+                    Array.isArray(res?.data?.items) ? res.data.items : [];
+    if (!aiItems.length) {
+      setError('AI could not detect medicines from dictation. Please edit manually.');
+    } else {
+      setItems(aiItems.map((item) => ({
+        medicine_name: item.medicine_name || '',
+        dosage: item.dosage || '',
+        frequency: item.frequency || '',
+        duration_days: item.duration_days || '',
+        notes: item.notes || '',
+      })));
+      setInfo('Form auto-filled from doctor dictation. Please verify and save draft/finalize.');
     }
-  };
+  } catch (err) {
+    setError(err.message || 'Failed to auto-fill prescription using AI');
+  } finally {
+    setAiLoading(false);
+  }
+};
 
   const handleDownloadPdf = () => {
     if (!pdfUrl) return;

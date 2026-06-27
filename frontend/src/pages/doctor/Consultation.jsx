@@ -4,11 +4,10 @@ import Sidebar from '../../components/common/Sidebar';
 import { saveConsultation, getPatientHistory } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 
-const DUMMY_CLINIC_NAME = 'Sunrise Family Clinic';
-
 const Consultation = () => {
   const { patient_id } = useParams();
-   console.log("patient_id:", patient_id);
+  console.log('RAW patient_id:', JSON.stringify(patient_id));
+
   const { user, selectedClinicId } = useAuth();
   const navigate = useNavigate();
   const clinic_id = selectedClinicId || user?.clinic_id || 1;
@@ -27,48 +26,65 @@ const Consultation = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [consultationId, setConsultationId] = useState(null);
-  const [clinicName, setClinicName] = useState(DUMMY_CLINIC_NAME);
+  const [clinicName, setClinicName] = useState(user?.clinic_name || '');
   const [isListening, setIsListening] = useState(false);
   const [activeField, setActiveField] = useState(null);
   const [voiceInterim, setVoiceInterim] = useState('');
   const [voiceStatus, setVoiceStatus] = useState('');
   const recognitionRef = useRef(null);
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const res = await getPatientHistory(patient_id);
-        setHistory(res.data);
-        if (res.data?.consultations?.[0]) {
-          const p = res.data.consultations[0];
-          setPatient({ name: p.patient_name, age: p.age, phone: p.phone });
-        }
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setPageLoading(false);
-      }
-    };
-    load();
-  }, [patient_id]);
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true); setError('');
+useEffect(() => {
+  const load = async () => {
     try {
-      const res = await saveConsultation({
-        ...form,
-        patient_id,
-        doctor_id: user.id,
-        clinic_id,
-      });
-      setConsultationId(res.data.consultation_id);
-      setClinicName(res.data.clinic_name || DUMMY_CLINIC_NAME);
-      setSuccess('Consultation saved!');
+      const res = await getPatientHistory(patient_id);
+      const data = res?.data || res;
+      setHistory(data);
+      if (data?.consultations?.[0]) {
+        const p = data.consultations[0];
+        setPatient({ 
+          name: p.patient_name || p.patient?.name, 
+          age: p.age || p.patient?.age, 
+          phone: p.phone || p.patient?.phone 
+        });
+      }
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to save consultation');
-    } finally { setLoading(false); }
+      console.error(err);
+    } finally {
+      setPageLoading(false);
+    }
   };
+  load();
+}, [patient_id]);
+
+ const handleSubmit = async (e) => {
+  e.preventDefault();
+  setLoading(true);
+  setError('');
+  try {
+    const walkin_id = localStorage.getItem('current_walkin_id') || null;
+    
+    const res = await saveConsultation({
+      ...form,
+      patient_id,
+      doctor_id: user.id,
+      clinic_id,
+      walkin_id: walkin_id ? Number(walkin_id) : null,
+    });
+    setConsultationId(res.consultation_id || res.data?.consultation_id);
+    setClinicName(res.clinic_name || res.data?.clinic_name || '');
+    setSuccess('Consultation saved!');
+  } catch (err) {
+    console.error('Save consultation error:', err);
+    setError(
+      err.response?.data?.message ||
+      err.response?.data?.error ||
+      err.message ||
+      'Failed to save consultation'
+    );
+  } finally {
+    setLoading(false);
+  }
+};
 
   const startVoice = (field) => {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -129,12 +145,13 @@ const Consultation = () => {
     };
 
     recognition.onerror = (e) => {
-      const message = e?.error === 'not-allowed'
-        ? 'Mic permission denied. Allow microphone access.'
-        : e?.error === 'no-speech'
+      const message =
+        e?.error === 'not-allowed'
+          ? 'Mic permission denied. Allow microphone access.'
+          : e?.error === 'no-speech'
           ? 'No speech detected. Try again.'
           : e?.error === 'audio-capture'
-            ? 'No microphone detected by browser.'
+          ? 'No microphone detected by browser.'
           : 'Voice capture failed. Please try again.';
       setVoiceStatus(message);
       setIsListening(false);
@@ -171,9 +188,11 @@ const Consultation = () => {
                 {patient.name} · Age {patient.age} · {patient.phone}
               </p>
             )}
-            <p style={{ color: '#0f6fff', fontSize: 12, marginTop: 4, fontWeight: 700 }}>
-              Clinic: {clinicName}
-            </p>
+            {clinicName && (
+              <p style={{ color: '#0f6fff', fontSize: 12, marginTop: 4, fontWeight: 700 }}>
+                Clinic: {clinicName}
+              </p>
+            )}
           </div>
         </div>
 
@@ -196,7 +215,7 @@ const Consultation = () => {
                     alignItems: 'center', justifyContent: 'center',
                     fontSize: 32, margin: '0 auto 20px',
                   }}>
-                    
+                    ✓
                   </div>
                   <h3 style={{ fontSize: 20, fontWeight: 800, marginBottom: 8 }}>Consultation Saved</h3>
                   <p style={{ color: '#64748b', fontSize: 14, marginBottom: 28 }}>
@@ -207,7 +226,7 @@ const Consultation = () => {
                       className="btn btn-primary"
                       onClick={() => navigate(`/doctor/prescription/${consultationId}`)}
                     >
-                       Write Prescription
+                      ✏️ Write Prescription
                     </button>
                     <button
                       className="btn btn-outline"
@@ -259,7 +278,7 @@ const Consultation = () => {
                           className={`btn btn-sm ${isListening && activeField === 'chief_complaint' ? 'btn-danger' : 'btn-outline'}`}
                           style={{ fontSize: 12 }}
                         >
-                          {isListening && activeField === 'chief_complaint' ? ' Stop' : ' Voice'}
+                          {isListening && activeField === 'chief_complaint' ? '⏹ Stop' : '🎤 Voice'}
                         </button>
                       </div>
                       <textarea
@@ -287,7 +306,7 @@ const Consultation = () => {
                           className={`btn btn-sm ${isListening && activeField === 'diagnosis_note' ? 'btn-danger' : 'btn-outline'}`}
                           style={{ fontSize: 12 }}
                         >
-                          {isListening && activeField === 'diagnosis_note' ? ' Stop' : ' Voice'}
+                          {isListening && activeField === 'diagnosis_note' ? '⏹ Stop' : '🎤 Voice'}
                         </button>
                       </div>
                       <textarea
@@ -309,11 +328,9 @@ const Consultation = () => {
                     )}
 
                     {/* Follow-up */}
-                    <div style={{
-                      borderTop: '1px solid #f1f5f9', paddingTop: 20, marginTop: 4
-                    }}>
+                    <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: 20, marginTop: 4 }}>
                       <div style={{ fontSize: 13, fontWeight: 700, color: '#475569', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 6 }}>
-                         Schedule Follow-up
+                        📅 Schedule Follow-up
                         <span style={{ fontSize: 11, color: '#94a3b8', fontWeight: 400 }}>optional</span>
                       </div>
                       <div className="grid-2" style={{ gap: 14 }}>
@@ -345,7 +362,7 @@ const Consultation = () => {
                         Cancel
                       </button>
                       <button type="submit" className="btn btn-primary" disabled={loading}>
-                        {loading ? 'Saving...' : ' Save Consultation'}
+                        {loading ? 'Saving...' : '💾 Save Consultation'}
                       </button>
                     </div>
                   </form>
@@ -356,11 +373,10 @@ const Consultation = () => {
             {/* Right: Patient context */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-              {/* Conditions / Allergies */}
               {conditions.length > 0 && (
                 <div className="card" style={{ padding: 18 }}>
                   <div style={{ fontSize: 12.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.6, color: '#64748b', marginBottom: 12 }}>
-                     Known Conditions
+                    ⚠️ Known Conditions
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
                     {conditions.map(c => (
@@ -379,11 +395,10 @@ const Consultation = () => {
                 </div>
               )}
 
-              {/* Last visits */}
               {lastVisits.length > 0 && (
                 <div className="card" style={{ padding: 18 }}>
                   <div style={{ fontSize: 12.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.6, color: '#64748b', marginBottom: 12 }}>
-                     Recent Visits
+                    🕐 Recent Visits
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                     {lastVisits.map(v => (
@@ -408,7 +423,7 @@ const Consultation = () => {
 
               {lastVisits.length === 0 && conditions.length === 0 && (
                 <div className="card" style={{ padding: 18, textAlign: 'center' }}>
-                  <div style={{ fontSize: 28, marginBottom: 8 }}></div>
+                  <div style={{ fontSize: 28, marginBottom: 8 }}>🆕</div>
                   <div style={{ fontSize: 13, color: '#64748b', fontWeight: 500 }}>New patient</div>
                   <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 4 }}>No previous visit history</div>
                 </div>

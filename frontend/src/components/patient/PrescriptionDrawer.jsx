@@ -19,39 +19,53 @@ const PrescriptionDrawer = ({ onClose }) => {
     return prescription?.pdf_path ? `${apiOrigin}/pdfs/${prescription.pdf_path}` : '';
   };
 
-  const handlePhoneSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-    setLoading(true);
+const handlePhoneSubmit = async (e) => {
+  e.preventDefault();
+  setError('');
+  setLoading(true);
+  try {
+    const res = await sendPatientOtp(phone);
+    if (res.otp) setError(`Your OTP is: ${res.otp}`); // shows OTP on screen
+    setStep('otp');
+  } catch (err) {
+    setError(err.message || 'Failed to send OTP');
+  } finally {
+    setLoading(false);
+  }
+};
+
+const handleOtpSubmit = async (e) => {
+  e.preventDefault();
+  setError('');
+  setLoading(true);
+  try {
+    const verifyRes = await verifyPatientOtp(phone, enteredOtp);
+    const patientData = verifyRes.patient;
+    const token = verifyRes.token;
+
+    // Store token for authenticated requests
+    localStorage.setItem('patient_token', token);
+
+    // Fetch consultation history
     try {
-      await sendPatientOtp(phone);
-      setStep('otp');
-    } catch (err) {
-      setError(err.response?.data?.error || err.response?.data?.message || 'Failed to send OTP');
-    } finally {
-      setLoading(false);
+      const historyRes = await fetch(
+        `http://localhost:5000/api/consultations/patient/${patientData.patient_id}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      const historyData = await historyRes.json();
+      setHistory(historyData);
+    } catch (e) {
+      setHistory({ consultations: [], prescriptions: [] });
     }
-  };
 
-  const handleOtpSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-    setLoading(true);
-    try {
-      const verifyRes = await verifyPatientOtp(phone, enteredOtp);
-      const token = verifyRes.data.token;
-
-      const prescriptionsRes = await getPatientPrescriptions(token);
-      setHistory(prescriptionsRes.data);
-      setPatient(prescriptionsRes.data.patient || verifyRes.data.patient);
-      setStep('dashboard');
-    } catch (err) {
-      setError(err.response?.data?.error || err.response?.data?.message || 'Failed to verify OTP');
-    } finally {
-      setLoading(false);
-    }
-  };
-
+    setPatient(patientData);
+    setStep('dashboard');
+  } catch (err) {
+    setError(err.message || 'Failed to verify OTP');
+  } finally {
+    setLoading(false);
+  }
+};
   return (
     <div style={{
       position: 'fixed', top: 0, right: 0, bottom: 0,

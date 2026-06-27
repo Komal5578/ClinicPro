@@ -17,15 +17,15 @@ const StaffManager = () => {
   const [success, setSuccess] = useState('');
 
   const fetchAll = async () => {
-    try {
-      const [s, inv, ls] = isDoctor
-        ? await Promise.all([getAllStaff(selectedClinicId), Promise.resolve({ data: [] }), Promise.resolve({ data: [] })])
-        : await Promise.all([getAllStaff(selectedClinicId), getInventory(), getLowStock()]);
-      setStaff(s.data);
-      setInventory(inv.data);
-      setLowStock(ls.data);
-    } catch (err) { console.error(err); }
-  };
+  try {
+    const [s, inv, ls] = isDoctor
+      ? await Promise.all([getAllStaff(selectedClinicId), Promise.resolve([]), Promise.resolve([])])
+      : await Promise.all([getAllStaff(selectedClinicId), getInventory(), getLowStock()]);
+    setStaff(Array.isArray(s) ? s : s?.data || []);
+    setInventory(Array.isArray(inv) ? inv : inv?.data || []);
+    setLowStock(Array.isArray(ls) ? ls : ls?.data || []);
+  } catch (err) { console.error(err); }
+};
 
   useEffect(() => { fetchAll(); }, []);
 
