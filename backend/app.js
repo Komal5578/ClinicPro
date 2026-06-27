@@ -24,7 +24,14 @@ const slotsRoutes = require('./src/routes/slots.routes');
 const app = express();
 
 app.use(helmet());
-app.use(cors());
+app.use(cors({
+  origin: [
+    'http://localhost:5173',
+    'https://clinic-pro-ten.vercel.app/',
+    '*' // or just use * for now
+  ],
+  credentials: true,
+}));
 app.use(express.json());
 app.use('/pdfs', (req, res, next) => {
   res.removeHeader('X-Frame-Options');
