@@ -1,4 +1,4 @@
-# ClinicPro 🏥
+# ClinicPro 
 
 An AI-powered clinic management system built for Indian healthcare. ClinicPro digitizes the entire clinic workflow — from patient walk-in to AI-generated prescriptions — across General, Ayurvedic, and Dental practices.
 
@@ -11,7 +11,7 @@ An AI-powered clinic management system built for Indian healthcare. ClinicPro di
 
 | Role | Email | Password |
 |------|-------|----------|
-| Doctor | rahul@clinic.com | 123456 |
+| Doctor | priya.iyer@clinic.com | 123456 |
 | Receptionist | anjali@iyer.com | 123456 |
 | Patient | Enter registered phone | OTP verified |
 
