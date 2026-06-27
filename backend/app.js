@@ -35,7 +35,7 @@ const corsOptions = {
 
 app.use(helmet());
 app.use(cors(corsOptions));
-app.options('*', cors(corsOptions)); // ← same config, not bare cors()
+app.options('/(.*)', cors(corsOptions));
 app.use(express.json());
 app.use('/pdfs', (req, res, next) => {
   res.removeHeader('X-Frame-Options');
