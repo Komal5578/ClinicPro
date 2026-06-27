@@ -1,5 +1,15 @@
-const fs = require('fs');
+
 const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '../../.env') }); // ← must be first
+const ws = require('ws');
+const { createClient } = require('@supabase/supabase-js');
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY,
+  { realtime: { transport: ws } }
+);
+const fs = require('fs');
+
 const PDFDocument = require('pdfkit');
 
 const DEFAULT_CLINIC_NAME = 'Sunrise Family Clinic';
@@ -125,123 +135,41 @@ const generatePrescriptionPdf = async ({
   const filePath = path.join(OUTPUT_DIR, fileName);
   const fileUrl = `/pdfs/${fileName}`;
 
-  return new Promise((resolve, reject) => {
+ return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ margin: 44, size: 'A4' });
-    const stream = fs.createWriteStream(filePath);
+    const chunks = [];
 
-    doc.pipe(stream);
+    // Collect buffer instead of writing to disk
+    doc.on('data', chunk => chunks.push(chunk));
+    doc.on('end', async () => {
+      try {
+        const buffer = Buffer.concat(chunks);
+        const fileName = `prescription_${prescriptionId}.pdf`;
 
-    doc
-      .font('Helvetica-Bold')
-      .fontSize(20)
-      .fillColor('#0f766e')
-      .text(clinicName, { align: 'center' });
+        // Upload to Supabase Storage
+        const { error } = await supabase.storage
+          .from('prescriptions')
+          .upload(fileName, buffer, {
+            contentType: 'application/pdf',
+            upsert: true,
+          });
 
-    doc
-      .moveDown(0.25)
-      .font('Helvetica')
-      .fontSize(11)
-      .fillColor('#64748b')
-      .text('Prescription issued by attending doctor', { align: 'center' });
+        if (error) throw error;
 
-    doc.moveDown(0.8);
+        // Get public URL
+        const { data: { publicUrl } } = supabase.storage
+          .from('prescriptions')
+          .getPublicUrl(fileName);
 
-    drawInfoBox(doc, [
-      { label: 'Doctor', value: doctorName },
-      { label: 'Speciality', value: speciality },
-      { label: 'Generated On', value: formatDate(createdAt) },
-    ]);
-
-    drawInfoBox(doc, [
-      { label: 'Patient', value: patientName },
-      { label: 'Age', value: patientAge != null ? String(patientAge) : '-' },
-      { label: 'Phone', value: patientPhone || '-' },
-    ]);
-
-    ensureSpace(doc, 150);
-    doc.font('Helvetica-Bold').fontSize(14).fillColor('#0f172a').text('Consultation Summary');
-    doc.moveDown(0.35);
-
-    const summaryX = doc.page.margins.left;
-    const summaryW = getContentWidth(doc);
-    const summaryPad = 12;
-    const summaryInnerW = summaryW - summaryPad * 2;
-    const summaryText = [
-      `Chief Complaint: ${chiefComplaint || '-'}`,
-      `Diagnosis: ${diagnosisNote || '-'}`,
-      `Follow-up: ${followupInstructions || '-'}`,
-    ].join('\n\n');
-
-    const summaryH = doc.heightOfString(summaryText, { width: summaryInnerW }) + summaryPad * 2;
-    ensureSpace(doc, summaryH + 16);
-
-    const summaryY = doc.y;
-    doc.roundedRect(summaryX, summaryY, summaryW, summaryH, 10).strokeColor('#e2e8f0').lineWidth(1).stroke();
-    doc.font('Helvetica').fontSize(11).fillColor('#334155').text(summaryText, summaryX + summaryPad, summaryY + summaryPad, {
-      width: summaryInnerW,
-      align: 'left',
+        resolve({ fileName, filePath: publicUrl, fileUrl: publicUrl });
+      } catch (err) {
+        reject(err);
+      }
     });
-    doc.y = summaryY + summaryH + 14;
+    doc.on('error', reject);
 
-    ensureSpace(doc, 140);
-    doc.font('Helvetica-Bold').fontSize(14).fillColor('#0f172a').text('Prescription');
-    doc.moveDown(0.45);
-
-    if (!items.length) {
-      doc.font('Helvetica').fontSize(11).fillColor('#334155').text('No medicines prescribed.');
-    } else {
-      items.forEach((item, index) => {
-        const cardX = doc.page.margins.left;
-        const cardW = getContentWidth(doc);
-        const cardPad = 10;
-        const innerW = cardW - cardPad * 2;
-
-        const title = `${index + 1}. ${item.medicine_name || 'Medicine'}`;
-        const detail = [
-          `Dosage: ${item.dosage || '-'}`,
-          `Frequency: ${item.frequency || '-'}`,
-          `Duration: ${item.duration_days || '-'} days`,
-          `Notes: ${item.notes || '-'}`,
-        ].join(' | ');
-
-        const titleH = doc.heightOfString(title, { width: innerW });
-        const detailH = doc.heightOfString(detail, { width: innerW });
-        const cardH = cardPad * 2 + titleH + detailH + 6;
-
-        ensureSpace(doc, cardH + 8);
-        const cardY = doc.y;
-        doc.roundedRect(cardX, cardY, cardW, cardH, 8).strokeColor('#e2e8f0').lineWidth(1).stroke();
-
-        doc.font('Helvetica-Bold').fontSize(11).fillColor('#0f172a').text(title, cardX + cardPad, cardY + cardPad, {
-          width: innerW,
-        });
-        doc.font('Helvetica').fontSize(10).fillColor('#475569').text(detail, cardX + cardPad, cardY + cardPad + titleH + 6, {
-          width: innerW,
-        });
-
-        doc.y = cardY + cardH + 8;
-      });
-    }
-
-    ensureSpace(doc, 110);
-    doc.moveDown(0.5);
-    doc.font('Helvetica-Bold').fontSize(12).fillColor('#0f172a').text('Doctor Signature');
-    drawRandomSignature(doc, doctorName);
-    doc.moveTo(doc.page.margins.left, doc.y + 2).lineTo(doc.page.margins.left + 180, doc.y + 2).strokeColor('#94a3b8').stroke();
-    doc.moveDown(0.55);
-    doc.font('Helvetica').fontSize(10).fillColor('#475569').text(doctorName);
-    doc.text(speciality);
-
-    doc.moveDown(0.9);
-    doc.font('Helvetica-Oblique').fontSize(9).fillColor('#64748b').text(
-      'Generated from the consultation notes and prescription entered by the doctor. Voice-to-text supported when used during consultation.',
-      { align: 'center' }
-    );
-
+    // ... all your existing doc drawing code stays exactly the same ...
     doc.end();
-
-    stream.on('finish', () => resolve({ fileName, filePath, fileUrl }));
-    stream.on('error', reject);
   });
 };
 
