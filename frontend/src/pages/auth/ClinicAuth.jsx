@@ -192,6 +192,7 @@ const ClinicAuth = () => {
               }}>
                 <strong style={{ color: '#475569' }}>Demo:</strong>{' '}
                 Receptionist → anjali@iyer.com / 123456
+                Doctor → priya.iyer@clinic.com / 123456
               </div>
             </div>
           </form>
