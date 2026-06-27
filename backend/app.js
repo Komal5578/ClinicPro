@@ -27,7 +27,7 @@ app.use(helmet());
 app.use(cors({
   origin: [
     'http://localhost:5173',
-    'https://clinic-pro-ten.vercel.app/',
+    'https://clinic-pro-ten.vercel.app',
     '*' // or just use * for now
   ],
   credentials: true,
