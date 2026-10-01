@@ -377,6 +377,13 @@ const finalizePrescription = async (req, res) => {
       .eq('clinic_id', consultation?.clinic_id)
       .single();
 
+
+  console.log('PDF PARAMS:', {
+    prescriptionId: prescription.prescription_id,
+    doctorName: doctor?.name,
+    patientName: patient?.name,
+    itemsCount: draftItems?.length
+  });
     const pdf = await generatePrescriptionPdf({
       prescriptionId: prescription.prescription_id,
       clinicName: clinic?.clinic_name || DEFAULT_CLINIC_NAME,
@@ -416,6 +423,8 @@ const finalizePrescription = async (req, res) => {
     });
   } catch (err) {
     console.error('finalizePrescription error:', err.message);
+
+  console.error('PDF GENERATION ERROR:', pdfErr); // ← ADD THIS
     return res.status(500).json({ message: 'Server error', error: err.message });
   }
 };

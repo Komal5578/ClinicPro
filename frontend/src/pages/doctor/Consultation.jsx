@@ -1,12 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Sidebar from '../../components/common/Sidebar';
-import { saveConsultation, getPatientHistory } from '../../services/api';
+import { saveConsultation, getPatientHistory, transcribeAudio } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 
 const Consultation = () => {
   const { patient_id } = useParams();
-  console.log('RAW patient_id:', JSON.stringify(patient_id));
 
   const { user, selectedClinicId } = useAuth();
   const navigate = useNavigate();
@@ -29,145 +28,146 @@ const Consultation = () => {
   const [clinicName, setClinicName] = useState(user?.clinic_name || '');
   const [isListening, setIsListening] = useState(false);
   const [activeField, setActiveField] = useState(null);
-  const [voiceInterim, setVoiceInterim] = useState('');
   const [voiceStatus, setVoiceStatus] = useState('');
-  const recognitionRef = useRef(null);
 
-useEffect(() => {
-  const load = async () => {
-    try {
-      const res = await getPatientHistory(patient_id);
-      const data = res?.data || res;
-      setHistory(data);
-      if (data?.consultations?.[0]) {
-        const p = data.consultations[0];
-        setPatient({ 
-          name: p.patient_name || p.patient?.name, 
-          age: p.age || p.patient?.age, 
-          phone: p.phone || p.patient?.phone 
-        });
+  const recorderRef = useRef(null);
+  const streamRef = useRef(null);
+  const chunksRef = useRef([]);
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const res = await getPatientHistory(patient_id);
+        const data = res?.data || res;
+        setHistory(data);
+        if (data?.consultations?.[0]) {
+          const p = data.consultations[0];
+          setPatient({
+            name: p.patient_name || p.patient?.name,
+            age: p.age || p.patient?.age,
+            phone: p.phone || p.patient?.phone,
+          });
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setPageLoading(false);
       }
+    };
+    load();
+  }, [patient_id]);
+
+  // Release the mic if the page is left while recording
+  useEffect(() => {
+    return () => {
+      if (recorderRef.current && recorderRef.current.state !== 'inactive') {
+        recorderRef.current.onstop = null;
+        recorderRef.current.stop();
+      }
+      streamRef.current?.getTracks().forEach((t) => t.stop());
+    };
+  }, []);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    try {
+      const walkin_id = localStorage.getItem('current_walkin_id') || null;
+
+      const res = await saveConsultation({
+        ...form,
+        patient_id,
+        doctor_id: user.id,
+        clinic_id,
+        walkin_id: walkin_id ? Number(walkin_id) : null,
+      });
+      setConsultationId(res.consultation_id || res.data?.consultation_id);
+      setClinicName(res.clinic_name || res.data?.clinic_name || '');
+      setSuccess('Consultation saved!');
     } catch (err) {
-      console.error(err);
+      console.error('Save consultation error:', err);
+      setError(
+        err.response?.data?.message ||
+        err.response?.data?.error ||
+        err.message ||
+        'Failed to save consultation'
+      );
     } finally {
-      setPageLoading(false);
+      setLoading(false);
     }
   };
-  load();
-}, [patient_id]);
 
- const handleSubmit = async (e) => {
-  e.preventDefault();
-  setLoading(true);
-  setError('');
-  try {
-    const walkin_id = localStorage.getItem('current_walkin_id') || null;
-    
-    const res = await saveConsultation({
-      ...form,
-      patient_id,
-      doctor_id: user.id,
-      clinic_id,
-      walkin_id: walkin_id ? Number(walkin_id) : null,
-    });
-    setConsultationId(res.consultation_id || res.data?.consultation_id);
-    setClinicName(res.clinic_name || res.data?.clinic_name || '');
-    setSuccess('Consultation saved!');
-  } catch (err) {
-    console.error('Save consultation error:', err);
-    setError(
-      err.response?.data?.message ||
-      err.response?.data?.error ||
-      err.message ||
-      'Failed to save consultation'
-    );
-  } finally {
-    setLoading(false);
-  }
-};
-
-  const startVoice = (field) => {
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) {
-      setVoiceStatus('Voice input is not supported in this browser');
+  // Record audio, then send it to the backend (Groq Whisper) for transcription
+  const startVoice = async (field) => {
+    // A recording is already running
+    if (recorderRef.current) {
+      if (activeField === field) {
+        recorderRef.current.stop(); // triggers onstop -> transcribe
+        setVoiceStatus('Processing...');
+      } else {
+        setVoiceStatus('Stop the current recording first.');
+      }
       return;
     }
 
-    if (isListening && activeField === field && recognitionRef.current) {
-      recognitionRef.current.stop();
-      setVoiceStatus('Stopped listening');
+    if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
+      setVoiceStatus('Audio recording is not supported in this browser');
       return;
     }
 
-    if (isListening && recognitionRef.current) {
-      recognitionRef.current.stop();
-    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
 
-    const recognition = new SR();
-    recognitionRef.current = recognition;
-    recognition.lang = 'en-IN';
-    recognition.continuous = true;
-    recognition.interimResults = true;
-    recognition.maxAlternatives = 1;
+      const recorder = new MediaRecorder(stream);
+      recorderRef.current = recorder;
+      chunksRef.current = [];
 
-    let hasFinalText = false;
-    let hasInterimText = false;
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunksRef.current.push(e.data);
+      };
 
-    recognition.onstart = () => {
+      recorder.onstop = async () => {
+        stream.getTracks().forEach((t) => t.stop());
+        recorderRef.current = null;
+        setIsListening(false);
+        setActiveField(null);
+
+        const blob = new Blob(chunksRef.current, { type: recorder.mimeType || 'audio/webm' });
+        if (blob.size < 1000) {
+          setVoiceStatus('No audio captured. Try again.');
+          return;
+        }
+
+        try {
+          setVoiceStatus('Transcribing...');
+          const res = await transcribeAudio(blob);
+          const text = (res?.text || '').trim();
+          if (!text) {
+            setVoiceStatus('No speech recognized. Try again.');
+            return;
+          }
+          setForm((f) => ({ ...f, [field]: f[field] ? `${f[field]} ${text}` : text }));
+          setVoiceStatus('Captured voice text');
+        } catch (err) {
+          console.error('Transcription error:', err);
+          setVoiceStatus(`Transcription failed: ${err.message}`);
+        }
+      };
+
+      recorder.start();
       setIsListening(true);
       setActiveField(field);
-      setVoiceInterim('');
-      setVoiceStatus('Listening... speak now');
-    };
-
-    recognition.onresult = (e) => {
-      let interim = '';
-      let finalText = '';
-
-      for (let i = e.resultIndex; i < e.results.length; i += 1) {
-        const transcript = e.results[i][0]?.transcript || '';
-        if (e.results[i].isFinal) {
-          finalText += `${transcript} `;
-        } else {
-          interim += transcript;
-        }
-      }
-
-      setVoiceInterim(interim.trim());
-      if (interim.trim()) hasInterimText = true;
-
-      if (finalText.trim()) {
-        hasFinalText = true;
-        const clean = finalText.trim();
-        setForm((f) => ({ ...f, [field]: f[field] ? `${f[field]} ${clean}` : clean }));
-        setVoiceStatus('Captured voice text');
-      }
-    };
-
-    recognition.onerror = (e) => {
-      const message =
-        e?.error === 'not-allowed'
+      setVoiceStatus('Recording... click Stop when done');
+    } catch (err) {
+      console.error('Mic error:', err);
+      setVoiceStatus(
+        err.name === 'NotAllowedError'
           ? 'Mic permission denied. Allow microphone access.'
-          : e?.error === 'no-speech'
-          ? 'No speech detected. Try again.'
-          : e?.error === 'audio-capture'
-          ? 'No microphone detected by browser.'
-          : 'Voice capture failed. Please try again.';
-      setVoiceStatus(message);
-      setIsListening(false);
-    };
-
-    recognition.onend = () => {
-      if (!hasFinalText && !hasInterimText) {
-        setVoiceStatus('No speech detected. Tap Voice and speak clearly.');
-      }
-      recognitionRef.current = null;
-      setVoiceInterim('');
-      setIsListening(false);
-      setActiveField(null);
-    };
-
-    recognition.start();
+          : 'Could not access the microphone.'
+      );
+    }
   };
 
   const lastVisits = history?.consultations?.slice(0, 3) || [];
@@ -289,11 +289,6 @@ useEffect(() => {
                         style={{ minHeight: 90 }}
                         required
                       />
-                      {isListening && activeField === 'chief_complaint' && voiceInterim && (
-                        <div style={{ marginTop: 6, fontSize: 12, color: '#0f766e' }}>
-                          Hearing: {voiceInterim}
-                        </div>
-                      )}
                     </div>
 
                     {/* Diagnosis with voice */}
@@ -316,11 +311,6 @@ useEffect(() => {
                         onChange={e => setForm(f => ({ ...f, diagnosis_note: e.target.value }))}
                         style={{ minHeight: 120 }}
                       />
-                      {isListening && activeField === 'diagnosis_note' && voiceInterim && (
-                        <div style={{ marginTop: 6, fontSize: 12, color: '#0f766e' }}>
-                          Hearing: {voiceInterim}
-                        </div>
-                      )}
                     </div>
 
                     {voiceStatus && (

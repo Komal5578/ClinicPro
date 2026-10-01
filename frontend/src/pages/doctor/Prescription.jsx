@@ -7,8 +7,8 @@ import {
   finalizePrescription,
   getDraftPrescriptionByConsultation,
   updateDraftPrescription,
+  transcribeAudio,
 } from '../../services/api';
-import { apiOrigin } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 
 const emptyMedicine = () => ({
@@ -31,10 +31,15 @@ const Prescription = () => {
   const [dictationText, setDictationText] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
   const [isListening, setIsListening] = useState(false);
-  const [voiceInterim, setVoiceInterim] = useState('');
   const [voiceStatus, setVoiceStatus] = useState('');
-  const recognitionRef = useRef(null);
 
+  const mediaRecorderRef = useRef(null);
+  const streamRef = useRef(null);
+  const chunksRef = useRef([]);
+
+  const isTranscribing = voiceStatus === 'Transcribing...';
+
+  // Load existing draft (a 404 simply means "no draft yet")
   useEffect(() => {
     let mounted = true;
     const loadDraft = async () => {
@@ -66,6 +71,16 @@ const Prescription = () => {
       mounted = false;
     };
   }, [consultation_id]);
+
+  // Stop the mic if the user leaves the page
+  useEffect(() => {
+    return () => {
+      if (mediaRecorderRef.current?.state === 'recording') {
+        mediaRecorderRef.current.stop();
+      }
+      streamRef.current?.getTracks().forEach((t) => t.stop());
+    };
+  }, []);
 
   const addMedicine = () => setItems(i => [...i, emptyMedicine()]);
   const removeMedicine = (idx) => setItems(i => i.filter((_, j) => j !== idx));
@@ -109,174 +124,165 @@ const Prescription = () => {
     }
   };
 
-const handleFinalize = async () => {
-  if (!validateItems()) return;
+  const handleFinalize = async () => {
+    if (!validateItems()) return;
 
-  setLoading(true);
-  setError('');
-  try {
-    let finalDraftId = draftId;
+    setLoading(true);
+    setError('');
+    try {
+      let finalDraftId = draftId;
 
-    if (!finalDraftId) {
-      const draftRes = await createDraftPrescription({
-        consultation_id,
-        patient_id: patient_id || 1,
-        doctor_id: user.id,
-        items,
-      });
-      finalDraftId = draftRes.prescription_id || draftRes.data?.prescription_id;
-      setDraftId(finalDraftId);
+      if (!finalDraftId) {
+        const draftRes = await createDraftPrescription({
+          consultation_id,
+          patient_id: patient_id || 1,
+          doctor_id: user.id,
+          items,
+        });
+        finalDraftId = draftRes.prescription_id || draftRes.data?.prescription_id;
+        setDraftId(finalDraftId);
+      }
+
+      const res = await finalizePrescription(finalDraftId, { items });
+      setPdfUrl(res.pdf_url || res.data?.pdf_url || '');
+
+      // Clear localStorage after finalization
+      localStorage.removeItem('current_walkin_id');
+      localStorage.removeItem('current_patient_id');
+
+      setSuccess(true);
+    } catch (err) {
+      setError(err.message || err.response?.data?.message || 'Failed to finalize prescription');
+    } finally {
+      setLoading(false);
     }
+  };
 
-    const res = await finalizePrescription(finalDraftId, { items });
-    setPdfUrl(res.pdf_url || res.data?.pdf_url || '');
-    
-    // ← Clear localStorage after finalization
-    localStorage.removeItem('current_walkin_id');
-    localStorage.removeItem('current_patient_id');
-    
-    setSuccess(true);
-  } catch (err) {
-    setError(err.message || err.response?.data?.message || 'Failed to finalize prescription');
-  } finally {
-    setLoading(false);
-  }
-};
-
-  const startVoiceDictation = () => {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      setError('Speech recognition is not supported in this browser');
+  // Voice dictation via MediaRecorder + Groq (same approach as Consultation page)
+  const startVoiceDictation = async () => {
+    // Second click = stop recording
+    if (isListening && mediaRecorderRef.current) {
+      mediaRecorderRef.current.stop();
       return;
     }
 
-    if (isListening && recognitionRef.current) {
-      recognitionRef.current.stop();
-      setVoiceStatus('Stopped listening');
+    if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
+      setError('Audio recording is not supported in this browser');
       return;
     }
 
-    const recognition = new SpeechRecognition();
-    recognitionRef.current = recognition;
-    recognition.lang = 'en-IN';
-    recognition.continuous = true;
-    recognition.interimResults = true;
-    recognition.maxAlternatives = 1;
+    try {
+      setError('');
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+      chunksRef.current = [];
 
-    let hasFinalText = false;
-    let hasInterimText = false;
+      const recorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = recorder;
 
-    setIsListening(true);
-    setVoiceInterim('');
-    setVoiceStatus('Listening... speak now');
-    recognition.start();
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunksRef.current.push(e.data);
+      };
 
-    recognition.onresult = (event) => {
-      let interim = '';
-      let finalText = '';
+      recorder.onstop = async () => {
+        setIsListening(false);
+        streamRef.current?.getTracks().forEach((t) => t.stop());
+        mediaRecorderRef.current = null;
 
-      for (let i = event.resultIndex; i < event.results.length; i += 1) {
-        const transcript = event.results[i][0]?.transcript || '';
-        if (event.results[i].isFinal) {
-          finalText += `${transcript} `;
-        } else {
-          interim += transcript;
+        const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
+        if (blob.size < 1000) {
+          setVoiceStatus('No audio captured. Tap Voice Dictation and speak clearly.');
+          return;
         }
-      }
 
-      setVoiceInterim(interim.trim());
-      if (interim.trim()) hasInterimText = true;
+        setVoiceStatus('Transcribing...');
+        try {
+          const res = await transcribeAudio(blob);
+          const text = (res?.text || '').trim();
+          if (text) {
+            setDictationText((prev) => [prev, text].filter(Boolean).join(' ').trim());
+            setVoiceStatus('Captured voice text');
+          } else {
+            setVoiceStatus('Could not hear anything. Try again.');
+          }
+        } catch (err) {
+          console.error('Transcription error:', err);
+          setVoiceStatus(`Transcription failed: ${err.message}`);
+        }
+      };
 
-      if (finalText.trim()) {
-        hasFinalText = true;
-        setDictationText((prev) => [prev, finalText.trim()].filter(Boolean).join(' ').trim());
-        setVoiceStatus('Captured voice text');
-      }
-    };
-
-    recognition.onerror = (event) => {
-      const message = event?.error === 'not-allowed'
-        ? 'Mic permission denied. Allow microphone access.'
-        : event?.error === 'no-speech'
-          ? 'No speech detected. Try again.'
-          : event?.error === 'audio-capture'
-            ? 'No microphone detected by browser.'
-          : 'Voice capture failed. Please try again.';
-      setVoiceStatus(message);
+      recorder.start();
+      setIsListening(true);
+      setVoiceStatus('Recording... tap again to stop');
+    } catch (err) {
+      setVoiceStatus(
+        err.name === 'NotAllowedError'
+          ? 'Mic permission denied. Allow microphone access.'
+          : 'No microphone detected by browser.'
+      );
       setIsListening(false);
-    };
-
-    recognition.onend = () => {
-      if (!hasFinalText && !hasInterimText) {
-        setVoiceStatus('No speech detected. Tap Voice Dictation and speak clearly.');
-      }
-      recognitionRef.current = null;
-      setVoiceInterim('');
-      setIsListening(false);
-    };
-  };
-
-const handleAiAutofill = async () => {
-  if (!String(dictationText || '').trim()) {
-    setError('Please dictate or type prescription text first');
-    return;
-  }
-
-  setAiLoading(true);
-  setError('');
-  try {
-    const res = await aiAutofillPrescription({ dictation_text: dictationText });
-    // res is the raw response, not res.data
-    const aiItems = Array.isArray(res?.items) ? res.items : 
-                    Array.isArray(res?.data?.items) ? res.data.items : [];
-    if (!aiItems.length) {
-      setError('AI could not detect medicines from dictation. Please edit manually.');
-    } else {
-      setItems(aiItems.map((item) => ({
-        medicine_name: item.medicine_name || '',
-        dosage: item.dosage || '',
-        frequency: item.frequency || '',
-        duration_days: item.duration_days || '',
-        notes: item.notes || '',
-      })));
-      setInfo('Form auto-filled from doctor dictation. Please verify and save draft/finalize.');
     }
-  } catch (err) {
-    setError(err.message || 'Failed to auto-fill prescription using AI');
-  } finally {
-    setAiLoading(false);
-  }
-};
-
- const handleDownloadPdf = () => {
-  if (!pdfUrl) return;
-  window.open(pdfUrl, '_blank', 'noopener,noreferrer'); // ← remove apiOrigin
-};
-
-const handleBackToQueue = () => {
-  if (pdfUrl) {
-    window.open(pdfUrl, '_blank', 'noopener,noreferrer'); // ← remove apiOrigin
-  }
-  navigate('/doctor/queue');
-};
-
-const handleShareToChemist = async () => {
-  if (!pdfUrl) return;
-  const shareData = {
-    title: 'ClinicPro Prescription',
-    text: 'Prescription PDF generated by ClinicPro',
-    url: pdfUrl, // ← remove apiOrigin
   };
 
-  if (navigator.share) {
-    await navigator.share(shareData);
-    return;
-  }
+  const handleAiAutofill = async () => {
+    if (!String(dictationText || '').trim()) {
+      setError('Please dictate or type prescription text first');
+      return;
+    }
 
-  await navigator.clipboard.writeText(pdfUrl); // ← remove apiOrigin
-  alert('Prescription link copied. Share it with the chemist.');
-};
-  
+    setAiLoading(true);
+    setError('');
+    try {
+      const res = await aiAutofillPrescription({ dictation_text: dictationText });
+      const aiItems = Array.isArray(res?.items) ? res.items :
+                      Array.isArray(res?.data?.items) ? res.data.items : [];
+      if (!aiItems.length) {
+        setError('AI could not detect medicines from dictation. Please edit manually.');
+      } else {
+        setItems(aiItems.map((item) => ({
+          medicine_name: item.medicine_name || '',
+          dosage: item.dosage || '',
+          frequency: item.frequency || '',
+          duration_days: item.duration_days || '',
+          notes: item.notes || '',
+        })));
+        setInfo('Form auto-filled from doctor dictation. Please verify and save draft/finalize.');
+      }
+    } catch (err) {
+      setError(err.message || 'Failed to auto-fill prescription using AI');
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  const handleDownloadPdf = () => {
+    if (!pdfUrl) return;
+    window.open(pdfUrl, '_blank', 'noopener,noreferrer');
+  };
+
+  const handleBackToQueue = () => {
+    if (pdfUrl) {
+      window.open(pdfUrl, '_blank', 'noopener,noreferrer');
+    }
+    navigate('/doctor/queue');
+  };
+
+  const handleShareToChemist = async () => {
+    if (!pdfUrl) return;
+    const shareData = {
+      title: 'ClinicPro Prescription',
+      text: 'Prescription PDF generated by ClinicPro',
+      url: pdfUrl,
+    };
+
+    if (navigator.share) {
+      await navigator.share(shareData);
+      return;
+    }
+
+    await navigator.clipboard.writeText(pdfUrl);
+    alert('Prescription link copied. Share it with the chemist.');
+  };
 
   const frequencies = ['Once daily', 'Twice daily', 'Thrice daily', 'Every 4 hours', 'Every 6 hours', 'Every 8 hours', 'At bedtime', 'As needed'];
 
@@ -330,11 +336,6 @@ const handleShareToChemist = async () => {
                 value={dictationText}
                 onChange={(e) => setDictationText(e.target.value)}
               />
-              {isListening && voiceInterim && (
-                <div style={{ marginTop: 8, fontSize: 12, color: '#0f766e' }}>
-                  Hearing: {voiceInterim}
-                </div>
-              )}
               {voiceStatus && (
                 <div style={{ marginTop: 6, fontSize: 12, color: '#64748b' }}>
                   {voiceStatus}
@@ -345,15 +346,15 @@ const handleShareToChemist = async () => {
                   type="button"
                   className={`btn ${isListening ? 'btn-danger' : 'btn-outline'}`}
                   onClick={startVoiceDictation}
-                  disabled={aiLoading || loading}
+                  disabled={aiLoading || loading || isTranscribing}
                 >
-                  {isListening ? 'Listening...' : 'Voice Dictation'}
+                  {isListening ? 'Stop recording' : isTranscribing ? 'Transcribing...' : 'Voice Dictation'}
                 </button>
                 <button
                   type="button"
                   className="btn btn-primary"
                   onClick={handleAiAutofill}
-                  disabled={aiLoading || loading || draftLoading}
+                  disabled={aiLoading || loading || draftLoading || isListening || isTranscribing}
                 >
                   {aiLoading ? 'Auto-filling...' : 'Auto-fill with AI'}
                 </button>

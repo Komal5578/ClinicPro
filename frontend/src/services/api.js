@@ -69,6 +69,25 @@ export const searchPatientPublic = (query) => fetchJSON(`/patients/search/public
 export const registerPatient = (data) => fetchJSON('/patients/register/public', { method: 'POST', body: JSON.stringify(data) });
 
 // Consultation & History
+export const transcribeAudio = async (blob) => {
+  const token = localStorage.getItem('token');
+  const fd = new FormData();
+  fd.append('audio', blob, 'audio.webm');
+
+  const res = await fetch(`${API_BASE}/consultations/transcribe`, {
+    method: 'POST',
+    headers: token ? { Authorization: `Bearer ${token}` } : {}, // no Content-Type!
+    body: fd,
+  });
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    const err = new Error(body?.message || body?.error || `API error: ${res.status}`);
+    err.response = { data: body };
+    throw err;
+  }
+  return res.json(); // { text: "..." }
+};
 export const saveConsultation = (data) => fetchJSON('/consultations', { method: 'POST', body: JSON.stringify(data) });
 export const getPatientHistory = (patientId) => fetchJSON(`/consultations/patient/${patientId}`);
 

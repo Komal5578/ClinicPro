@@ -1,5 +1,6 @@
 const { createClient } = require('@supabase/supabase-js');
 const ws = require('ws');
+const { transcribeAudio } = require('../services/transcribe.service');
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -313,12 +314,25 @@ const getPrescription = async (req, res) => {
   }
 };
 
+const transcribeVoice = async (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ message: 'Audio file is required' });
+  }
+  try {
+    const text = await transcribeAudio(req.file.buffer, req.file.mimetype);
+    return res.json({ text });
+  } catch (err) {
+    console.error('TRANSCRIBE ERROR:', err.message);
+    return res.status(502).json({ message: 'Transcription failed', error: err.message });
+  }
+};
 module.exports = {
   aiAutofillPrescription,
   createDraftPrescription,
   finalizePrescription,
   getPatientHistory,
   getDraftByConsultation,
+  transcribeVoice,        
   getMyPrescriptions,
   getPrescription,
   saveConsultation,
